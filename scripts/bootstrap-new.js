@@ -1,14 +1,17 @@
-// Bootstrap v5 - Com sistema de visão completo
+// Bootstrap v6 - COM SISTEMA DE LAYERS COMPLETO
 (function () {
   "use strict";
 
-  console.log("🚀 Bootstrap v5 - Com área de visão do inimigo");
+  console.log("🚀 Bootstrap v6 - Com sistema de layers");
 
   function loadGameScripts(callback) {
     var scripts = [
-      "scripts/assetLoader.js", // Carrega primeiro o asset loader
+      "scripts/layerManager.js", // ⭐ NOVO: Carrega primeiro o gerenciador de layers
+      "scripts/assetLoader.js",
       "scripts/playerController.js",
       "scripts/enemyAI.js",
+      "scripts/torch.js",
+      "scripts/altar.js",
       "scripts/gameManager.js",
       "scripts/uiManager.js",
     ];
@@ -84,7 +87,7 @@
   }
 
   function main() {
-    console.log("🎮 Starting game with vision system...");
+    console.log("🎮 Starting game with layer system...");
 
     var canvas = document.getElementById("application-canvas");
     var app = new pc.Application(canvas, {
@@ -116,6 +119,10 @@
   }
 
   function buildScene(app) {
+    // ⭐ SETUP LAYERS PRIMEIRO (ANTES DE CRIAR QUALQUER ENTIDADE)
+    var LAYERS = window.setupLayers(app);
+    console.log("🎨 Layers configuradas:", LAYERS);
+
     var world = new pc.Entity("World");
     app.root.addChild(world);
 
@@ -136,6 +143,15 @@
       orthoHeight: 14,
       nearClip: 0.1,
       farClip: 100,
+      // ⭐ Define quais layers a câmera renderiza
+      layers: [
+        LAYERS.BACKGROUND,
+        LAYERS.WORLD,
+        LAYERS.OBJECTS,
+        LAYERS.PLAYER,
+        LAYERS.ENEMIES,
+        LAYERS.VISION,
+      ],
     });
     camera.setLocalPosition(0, 0, 20);
     camera.lookAt(0, 0, 0);
@@ -159,6 +175,7 @@
       pivot: [0.5, 0.5],
       color: new pc.Color(0, 0, 0, 0.95),
       opacity: 0.95,
+      layers: [LAYERS.UI], // ⭐ UI na layer correta
     });
     ui.addChild(menuPanel);
 
@@ -167,6 +184,7 @@
       type: pc.ELEMENTTYPE_GROUP,
       anchor: [0, 0, 1, 1],
       pivot: [0.5, 0.5],
+      layers: [LAYERS.UI], // ⭐ UI na layer correta
     });
     ui.addChild(hudPanel);
 
@@ -175,6 +193,7 @@
       type: pc.ELEMENTTYPE_GROUP,
       anchor: [0, 0, 1, 1],
       pivot: [0.5, 0.5],
+      layers: [LAYERS.UI], // ⭐ UI na layer correta
     });
     pausePanel.enabled = false;
     ui.addChild(pausePanel);
@@ -190,9 +209,41 @@
       text: "👹 0",
       outlineColor: new pc.Color(0, 0, 0),
       outlineThickness: 0.3,
+      layers: [LAYERS.UI], // ⭐ UI na layer correta
     });
     enemyCountText.setLocalPosition(25, -25, 0);
     hudPanel.addChild(enemyCountText);
+
+    var hintText = new pc.Entity("HintText");
+    hintText.addComponent("element", {
+      type: pc.ELEMENTTYPE_TEXT,
+      anchor: [0.5, 0, 0.5, 0],
+      pivot: [0.5, 0],
+      fontSize: 24,
+      color: new pc.Color(1, 1, 1),
+      text: "",
+      outlineColor: new pc.Color(0, 0, 0),
+      outlineThickness: 0.3,
+      layers: [LAYERS.UI], // ⭐ UI na layer correta
+    });
+    hintText.setLocalPosition(0, 25, 0);
+    hudPanel.addChild(hintText);
+
+    var progressBar = new pc.Entity("ProgressBar");
+    progressBar.addComponent("element", {
+      type: pc.ELEMENTTYPE_TEXT,
+      anchor: [0.5, 0, 0.5, 0],
+      pivot: [0.5, 0],
+      fontSize: 24,
+      color: new pc.Color(0, 1, 0),
+      text: "",
+      outlineColor: new pc.Color(0, 0, 0),
+      outlineThickness: 0.3,
+      layers: [LAYERS.UI], // ⭐ UI na layer correta
+    });
+    progressBar.setLocalPosition(0, 60, 0);
+    progressBar.enabled = false;
+    hudPanel.addChild(progressBar);
 
     // Menu Buttons
     var btnStart = createButton(
@@ -202,6 +253,7 @@
       new pc.Vec3(0, 100, 0),
       new pc.Vec2(280, 56),
       function () {
+        console.log("🎮 Start button clicked!");
         app.fire("game:reset");
         app.fire("game:resume");
         menuPanel.enabled = false;
@@ -216,6 +268,7 @@
       new pc.Vec3(0, 20, 0),
       new pc.Vec2(200, 48),
       function () {
+        console.log("🚪 Exit button clicked");
         window.close();
       }
     );
@@ -224,18 +277,25 @@
     var heroTex = window.GAME_TEXTURES?.player || [];
     var enemyTex = window.GAME_TEXTURES?.enemy || [];
     var visionTex = window.GAME_TEXTURES?.vision || [];
+    var torchTex = window.GAME_TEXTURES?.torch || [];
+    var altarTex = window.GAME_TEXTURES?.altar || [];
     var mapTex = window.GAME_TEXTURES?.world?.scenario;
 
     console.log("🎨 Using textures:", {
       hero: heroTex.length,
       enemy: enemyTex.length,
       vision: visionTex.length,
+      torch: torchTex.length,
+      altar: altarTex.length,
       map: !!mapTex,
     });
 
-    // Background (map)
+    // ⭐ BACKGROUND (map) - LAYER BACKGROUND
     var background = new pc.Entity("Background");
-    background.addComponent("render", { type: "box" });
+    background.addComponent("render", { 
+      type: "box",
+      layers: [LAYERS.BACKGROUND], // ⭐ Define a layer
+    });
     background.setLocalScale(24, 24, 0.1);
     background.setLocalPosition(0, 0, -1);
     if (mapTex) {
@@ -243,9 +303,12 @@
     }
     world.addChild(background);
 
-    // Player
+    // ⭐ PLAYER - LAYER PLAYER
     var player = new pc.Entity("Player");
-    player.addComponent("render", { type: "box" });
+    player.addComponent("render", { 
+      type: "box",
+      layers: [LAYERS.PLAYER], // ⭐ Define a layer
+    });
     player.setLocalScale(1, 1, 0.1);
     player.setLocalPosition(0, -5, 0.02);
     if (heroTex[0]) {
@@ -261,15 +324,76 @@
     });
     world.addChild(player);
 
+    // ⭐ TORCHES - LAYER WORLD
+    var torchPositions = [
+      new pc.Vec3(-11, -11, 0.01),
+      new pc.Vec3(-11, 11, 0.01),
+      new pc.Vec3(11, -11, 0.01),
+      new pc.Vec3(11, 11, 0.01),
+    ];
+    torchPositions.forEach(function (pos, index) {
+      var torch = new pc.Entity("Torch" + index);
+      torch.addComponent("render", { 
+        type: "box",
+        layers: [LAYERS.WORLD], // ⭐ Define a layer
+      });
+      torch.setLocalScale(0.5, 0.5, 0.1);
+      torch.setLocalPosition(pos.x, pos.y, pos.z);
+      var mat = makeMaterial(torchTex[0] || null);
+      if (!torchTex[0]) {
+        mat.diffuse.set(0.6, 0.1, 0.1);
+        mat.emissive.set(0.6, 0.1, 0.1);
+        mat.useLighting = false;
+        mat.update();
+      }
+      torch.render.meshInstances[0].material = mat;
+      torch.addComponent("script");
+      torch.script.create("torch", {
+        attributes: {
+          unlitTexture: torchTex[0]
+            ? new pc.Asset("torch_unlit", "texture", {
+                url: "./game_assets/world/tocha-frente.png",
+              })
+            : null,
+          litTexture: torchTex[1]
+            ? new pc.Asset("torch_lit", "texture", {
+                url: "./game_assets/world/tocha-lateral.png",
+              })
+            : null,
+          startLit: false,
+        },
+      });
+      world.addChild(torch);
+    });
+
+    // ⭐ ALTAR - LAYER WORLD
+    var altar = new pc.Entity("Altar");
+    altar.addComponent("render", { 
+      type: "box",
+      layers: [LAYERS.WORLD], // ⭐ Define a layer
+    });
+    altar.setLocalScale(2, 2, 0.1);
+    altar.setLocalPosition(0, 0, 0.02);
+    if (altarTex[0]) {
+      altar.render.meshInstances[0].material = makeMaterial(altarTex[0]);
+    }
+    altar._altarTextures = altarTex;
+    altar.addComponent("script");
+    altar.script.create("altar");
+    world.addChild(altar);
+
     // GameManager
     var gm = new pc.Entity("GameManager");
     gm.addComponent("script");
     gm.script.create("gameManager");
     world.addChild(gm);
 
-    // Enemy Prefab
+    // ⭐ ENEMY PREFAB - LAYER ENEMIES
     var enemyPrefab = new pc.Entity("EnemyPrefab");
-    enemyPrefab.addComponent("render", { type: "box" });
+    enemyPrefab.addComponent("render", { 
+      type: "box",
+      layers: [LAYERS.ENEMIES], // ⭐ Define a layer
+    });
     enemyPrefab.setLocalScale(0.9, 0.9, 0.1);
     if (enemyTex[0]) {
       enemyPrefab.render.meshInstances[0].material = makeMaterial(enemyTex[0]);
@@ -280,6 +404,14 @@
     enemyPrefab.enabled = false;
     gm.addChild(enemyPrefab);
 
+    // ⭐ IMPORTANTE: Salvar LAYERS globalmente para uso nos scripts
+    window.GAME_LAYERS = LAYERS;
+
+    // Spawn Points
+    var spawnPointTop = new pc.Entity("SpawnPointTop");
+    spawnPointTop.setLocalPosition(0, 11, 0);
+    world.addChild(spawnPointTop);
+
     // UI Manager
     var uiMgr = new pc.Entity("UiManager");
     uiMgr.addComponent("script");
@@ -289,6 +421,8 @@
         hudPanel: hudPanel,
         pausePanel: pausePanel,
         enemyCountText: enemyCountText,
+        hintText: hintText,
+        progressBar: progressBar,
         btnStart: btnStart,
         btnExit: btnExit,
       },
@@ -297,15 +431,25 @@
 
     // Connect scripts
     gm.script.gameManager.player = player;
+    gm.script.gameManager.altar = altar;
     gm.script.gameManager.uiManager = uiMgr;
     gm.script.gameManager.enemyPrefab = enemyPrefab;
+    gm.script.gameManager.spawnPoints = [spawnPointTop];
 
-    // Start paused
-    menuPanel.enabled = true;
-    hudPanel.enabled = false;
-    app.fire("game:pause");
+    // ⭐ INÍCIO AUTOMÁTICO (para debug)
+    // Descomente as linhas abaixo para voltar ao menu
+    // menuPanel.enabled = true;
+    // hudPanel.enabled = false;
+    // app.fire("game:pause");
+    
+    // 🎮 INICIA DIRETO NO JOGO (comentar para voltar ao menu)
+    console.log("🎮 Starting game directly...");
+    menuPanel.enabled = false;
+    hudPanel.enabled = true;
+    app.fire("game:reset");
+    app.fire("game:resume");
 
-    console.log("✅ Scene built successfully!");
+    console.log("✅ Scene built successfully with layers!");
   }
 
   if (document.readyState === "loading") {

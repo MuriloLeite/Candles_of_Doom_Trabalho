@@ -160,14 +160,15 @@ UiManager.prototype._onGameState = function (data) {
   }
 };
 
-UiManager.prototype._onHint = function (text) {
-  if (this.hintText && this.hintText.element) {
-    this.hintText.element.text = text || "";
-  }
-  // DOM fallback
-  if (typeof document !== "undefined") {
-    var h = document.getElementById("hud-hint");
-    if (h) h.textContent = text || "";
+UiManager.prototype._onProgress = function (percent) {
+  if (this.progressBar && this.progressBar.element) {
+    if (percent > 0) {
+      this.progressBar.element.text = "Progress: " + percent + "%";
+      this.progressBar.enabled = true;
+    } else {
+      this.progressBar.element.text = "";
+      this.progressBar.enabled = false;
+    }
   }
 };
 

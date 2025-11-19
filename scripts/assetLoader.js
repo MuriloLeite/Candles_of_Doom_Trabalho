@@ -30,17 +30,27 @@ function loadGameAssets(app) {
       "./game_assets/enemy/enemy_vision_side.png",
     ];
 
+    const torchAssets = [
+      "./game_assets/world/tocha-frente.png", // unlit
+      "./game_assets/world/tocha-lateral.png", // lit
+    ];
+
+    const altarAssets = [
+      "./game_assets/world/portal.png", // frame 0
+      "./game_assets/world/portal.png", // frame 1
+      "./game_assets/world/portal.png", // frame 2
+      "./game_assets/world/portal.png", // frame 3
+      "./game_assets/world/portal.png", // frame 4
+    ];
+
     const worldAssets = [
       "./game_assets/world/scenario.png",
-      "./game_assets/world/tocha-frente.png",
-      "./game_assets/world/tocha-lateral.png",
       "./game_assets/world/banco.png",
       "./game_assets/world/pedra.png",
-      "./game_assets/world/portal.png",
       "./game_assets/world/poste.png",
     ];
 
-    const allAssets = [...playerAssets, ...enemyAssets, ...visionAssets, ...worldAssets];
+    const allAssets = [...playerAssets, ...enemyAssets, ...visionAssets, ...torchAssets, ...altarAssets, ...worldAssets];
     let toLoad = allAssets.length;
     let loaded = 0;
 
@@ -49,9 +59,10 @@ function loadGameAssets(app) {
         window.GAME_TEXTURES.player[index] = asset.resource;
       } else if (category === "enemy") {
         window.GAME_TEXTURES.enemy[index] = asset.resource;
-      } else if (category === "vision") {
-        window.GAME_TEXTURES.vision[index] = asset.resource;
-        console.log(`✅ Vision texture ${index} loaded:`, asset.name);
+      } else if (category === "torch") {
+        window.GAME_TEXTURES.torch[index] = asset.resource;
+      } else if (category === "altar") {
+        window.GAME_TEXTURES.altar[index] = asset.resource;
       } else if (category === "world") {
         const name = asset.name.toLowerCase();
         window.GAME_TEXTURES.world[name] = asset.resource;
@@ -99,6 +110,32 @@ function loadGameAssets(app) {
       asset.once("error", (err) => {
         console.warn(`⚠️ Failed to load vision asset ${index}:`, err);
         console.log("Will use solid color cone instead");
+        loaded++;
+        if (loaded === toLoad) resolve(window.GAME_TEXTURES);
+      });
+      app.assets.load(asset);
+    });
+
+    // Load torch assets
+    torchAssets.forEach((url, index) => {
+      const asset = new pc.Asset(`torch_${index}`, "texture", { url: url });
+      app.assets.add(asset);
+      asset.once("load", () => onAssetLoaded(asset, "torch", index));
+      asset.once("error", (err) => {
+        console.error(`❌ Failed to load torch asset ${index}:`, err);
+        loaded++;
+        if (loaded === toLoad) resolve(window.GAME_TEXTURES);
+      });
+      app.assets.load(asset);
+    });
+
+    // Load altar assets
+    altarAssets.forEach((url, index) => {
+      const asset = new pc.Asset(`altar_${index}`, "texture", { url: url });
+      app.assets.add(asset);
+      asset.once("load", () => onAssetLoaded(asset, "altar", index));
+      asset.once("error", (err) => {
+        console.error(`❌ Failed to load altar asset ${index}:`, err);
         loaded++;
         if (loaded === toLoad) resolve(window.GAME_TEXTURES);
       });

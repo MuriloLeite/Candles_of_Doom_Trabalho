@@ -17,6 +17,8 @@ Altar.prototype.initialize = function () {
     this._total = 4; // default, GameManager may override via event
     this._winPending = false;
 
+    console.log("🕯️ Altar initializing...");
+
     // Fallback 1: Buscar da propriedade customizada da entidade
     var hasValidTextures = this.frameTextures && this.frameTextures.length > 0 && this.frameTextures[0] !== null;
     if (!hasValidTextures && this.entity._altarTextures) {
@@ -38,6 +40,8 @@ Altar.prototype.initialize = function () {
     
     // Apply initial frame (0 torches lit)
     this._applyFrame();
+
+    console.log("🕯️ Altar initialized with", this.frameTextures ? this.frameTextures.length : 0, "textures");
 };
 
 Altar.prototype.onDestroy = function () {
@@ -82,10 +86,9 @@ Altar.prototype._triggerWin = function () {
 };
 
 Altar.prototype._applyFrameTexture = function (frameIndex) {
-    if (!this.entity.render || !this.frameTextures || !this.frameTextures.length) return;
-    var asset = this.frameTextures[Math.min(frameIndex|0, this.frameTextures.length - 1)];
+    if (!this.entity.render) return;
+    var asset = this.frameTextures && this.frameTextures[Math.min(frameIndex|0, this.frameTextures.length - 1)];
     var tex = asset && asset.resource ? asset.resource : asset;
-    if (!tex) return;
     
     // Aplicar ao meshInstance diretamente
     var mat = this.entity.render.meshInstances[0].material;
@@ -93,11 +96,30 @@ Altar.prototype._applyFrameTexture = function (frameIndex) {
         mat = new pc.StandardMaterial();
         this.entity.render.meshInstances[0].material = mat;
     }
-    mat.diffuseMap = tex;
-    mat.emissiveMap = tex;
-    mat.emissive = new pc.Color(1, 1, 1);
-    mat.opacityMap = tex;
-    mat.blendType = pc.BLEND_PREMULTIPLIED;
-    mat.useLighting = false;
+
+    if (tex) {
+        mat.diffuseMap = tex;
+        mat.emissiveMap = tex;
+        mat.emissive = new pc.Color(1, 1, 1);
+        mat.opacityMap = tex;
+        mat.blendType = pc.BLEND_PREMULTIPLIED;
+        mat.useLighting = false;
+    } else {
+        // Fallback: use color based on frame
+        var colors = [
+            new pc.Color(0.2, 0.2, 0.2), // 0: dark
+            new pc.Color(0.4, 0.2, 0.2), // 1: red
+            new pc.Color(0.6, 0.4, 0.2), // 2: orange
+            new pc.Color(0.8, 0.6, 0.2), // 3: yellow
+            new pc.Color(1, 1, 0.5)      // 4: bright yellow
+        ];
+        var color = colors[frameIndex] || colors[0];
+        mat.diffuse = color;
+        mat.emissive = color;
+        mat.useLighting = false;
+        mat.diffuseMap = null;
+        mat.emissiveMap = null;
+        mat.opacityMap = null;
+    }
     mat.update();
 };
