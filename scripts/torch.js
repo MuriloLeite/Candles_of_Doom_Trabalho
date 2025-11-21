@@ -1,11 +1,3 @@
-/*
-  Torch of Ruin - torch.js
-  - Two states: lit / unlit
-  - Player lights (hold E for 5 seconds) ⭐ ATUALIZADO
-  - Enemy extinguishes
-  - Notifies GameManager via app events
-*/
-
 var Torch = pc.createScript('torch');
 
 Torch.attributes.add('startLit', { type: 'boolean', default: false, title: 'Start Lit' });
@@ -34,7 +26,7 @@ Torch.prototype.initialize = function () {
 
     this._applySprite();
     
-    console.log("🔥 Torch initialized:", this.entity.name, "| Lit:", this._isLit);
+    console.log("Torch initialized:", this.entity.name, "| Lit:", this._isLit);
 };
 
 Torch.prototype.onDestroy = function () {
@@ -84,7 +76,7 @@ Torch.prototype.beginIgnite = function (playerEntity) {
     if (this._isLit) return;
     if (this._igniteBy && this._igniteBy !== playerEntity) return;
     this._igniteBy = playerEntity;
-    console.log("🔥 Player começou a acender tocha:", this.entity.name);
+    console.log("Player começou a acender tocha:", this.entity.name);
 };
 
 Torch.prototype.cancelIgnite = function (playerEntity) {
@@ -92,7 +84,7 @@ Torch.prototype.cancelIgnite = function (playerEntity) {
         this._igniteBy = null;
         this._igniteProgress = 0;
         this.app.fire('ui:hint', '');
-        console.log("❌ Ignição cancelada:", this.entity.name);
+        console.log("Ignição cancelada:", this.entity.name);
     }
 };
 
@@ -129,23 +121,23 @@ Torch.prototype.update = function (dt) {
             this._igniteProgress += dt;
             var percent = Math.min(100, Math.floor(this._igniteProgress / this.igniteTime * 100));
             
-            // ⭐ Feedback visual progressivo
+            // Feedback visual progressivo
             var barWidth = 20;
             var filledWidth = Math.floor((percent / 100) * barWidth);
             var bar = '[' + '='.repeat(filledWidth) + ' '.repeat(barWidth - filledWidth) + ']';
             
-            this.app.fire('ui:hint', '🔥 Acendendo tocha... ' + percent + '% ' + bar);
+            this.app.fire('ui:hint', 'Acendendo tocha... ' + percent + '% ' + bar);
             
-            // ⭐ Efeito visual na própria tocha (brilho crescente)
+            // Efeito visual na própria tocha (brilho crescente)
             this._applyIgniteEffect(percent / 100);
             
             if (this._igniteProgress >= this.igniteTime) {
                 this._setLit(true);
                 this._igniteBy = null;
                 this._igniteProgress = 0;
-                this.app.fire('ui:hint', '✅ Tocha acesa!');
+                this.app.fire('ui:hint', 'Tocha acesa!');
                 this._playVfx(this.vfxOnIgnite);
-                console.log("🔥 Tocha acesa com sucesso:", this.entity.name);
+                console.log("Tocha acesa com sucesso:", this.entity.name);
             }
         } else {
             // interrupted
@@ -167,7 +159,7 @@ Torch.prototype.update = function (dt) {
                 this._extinguishBy = null;
                 this._extinguishProgress = 0;
                 this._playVfx(this.vfxOnExtinguish);
-                console.log("💨 Tocha apagada pelo inimigo:", this.entity.name);
+                console.log("Tocha apagada pelo inimigo:", this.entity.name);
             }
         } else {
             this._extinguishBy = null;

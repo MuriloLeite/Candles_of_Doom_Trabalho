@@ -1,12 +1,243 @@
-// Bootstrap v6 - COM SISTEMA DE LAYERS COMPLETO
+// Bootstrap v6 
 (function () {
   "use strict";
 
-  console.log("🚀 Bootstrap v6 - Com sistema de layers");
+  console.log("Bootstrap v6 - Com sistema de layers e menu");
+
+  // MENU CONTROLLER como função standalone (não usa pc.createScript)
+  // MENU CONTROLLER como função standalone (não usa pc.createScript)
+function setupMenuController(app) {
+  console.log("Setting up menu controller...");
+
+  var btnStart = document.getElementById("btnStart");
+  var btnQuit = document.getElementById("btnQuit");
+  var btnMute = document.getElementById("btnMute");
+  var btnPause = document.getElementById("btnPause");
+  var menu = document.getElementById("menuInicial");
+  var pauseOverlay = document.getElementById("pauseOverlay");
+
+  console.log("Elementos encontrados:", {
+    btnStart: !!btnStart,
+    btnQuit: !!btnQuit,
+    btnMute: !!btnMute,
+    btnPause: !!btnPause,
+    menu: !!menu,
+    pauseOverlay: !!pauseOverlay
+  });
+
+  // SISTEMA DE MÚSICA
+  var bgMusic = new Audio();
+  bgMusic.loop = true;
+  bgMusic.volume = 0.3;
+  
+  // Adicione o caminho da sua música aqui
+  bgMusic.src = "game_assets/audio/bg-theme.mp3";
+  
+  var isMusicPlaying = false;
+  var musicEnabled = localStorage.getItem('ash:music') !== 'false'; // true por padrão
+  var isGamePaused = false;
+
+  function playMusic() {
+    if (musicEnabled && !isMusicPlaying) {
+      bgMusic.play().then(function() {
+        isMusicPlaying = true;
+        console.log("Música iniciada");
+      }).catch(function(err) {
+        console.warn("Não foi possível tocar música:", err);
+      });
+    }
+  }
+
+  function stopMusic() {
+    bgMusic.pause();
+    isMusicPlaying = false;
+    console.log("Música pausada");
+  }
+
+  function toggleMusic() {
+    musicEnabled = !musicEnabled;
+    localStorage.setItem('ash:music', musicEnabled.toString());
+    
+    if (musicEnabled) {
+      playMusic();
+    } else {
+      stopMusic();
+    }
+    
+    updateMusicButton();
+    console.log("Música:", musicEnabled ? "ON" : "OFF");
+  }
+
+ 
+
+  // BOTÃO DE PAUSA
+  function setupPauseButton() {
+    if (!btnPause) {
+      console.warn("Botão de pausa não encontrado!");
+      return;
+    }
+
+    btnPause.addEventListener("click", function() {
+      isGamePaused = !isGamePaused;
+      
+      if (isGamePaused) {
+        // Pausar jogo
+        app.timeScale = 0;
+        app.fire("game:pause");
+        btnPause.innerHTML = "Retomar";
+        btnPause.style.backgroundColor = "rgba(255,184,77,0.3)";
+        
+        // Mostrar overlay de pausa se existir
+        if (pauseOverlay) {
+          pauseOverlay.style.display = "flex";
+        }
+        
+        // Pausar música
+        if (isMusicPlaying) {
+          bgMusic.pause();
+        }
+        
+        console.log("Jogo pausado via botão");
+      } else {
+        // Retomar jogo
+        app.timeScale = 1;
+        app.fire("game:resume");
+        btnPause.innerHTML = "Pausar";
+        btnPause.style.backgroundColor = "rgba(0,0,0,0.7)";
+        
+        // Esconder overlay de pausa
+        if (pauseOverlay) {
+          pauseOverlay.style.display = "none";
+        }
+        
+        // Retomar música se estava tocando
+        if (musicEnabled && !isMusicPlaying) {
+          playMusic();
+        }
+        
+        console.log("Jogo retomado via botão");
+      }
+    });
+    
+    console.log("Botão Pausar conectado");
+  }
+
+  // Controle de pausa por tecla ESC
+  function setupKeyboardPause() {
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' || e.key === 'Esc' || e.keyCode === 27) {
+        if (btnPause && menu && menu.style.display === 'none') {
+          // Só permite pausar se o jogo estiver rodando (menu não visível)
+          btnPause.click();
+          e.preventDefault();
+        }
+      }
+    });
+  }
+
+  // Configura botão de música
+  if (btnMute) {
+    updateMusicButton();
+    btnMute.addEventListener("click", toggleMusic);
+    console.log("Botão de música conectado");
+  }
+
+  // Configura botão de pausa
+  setupPauseButton();
+  setupKeyboardPause();
+
+  // PAUSA O JOGO IMEDIATAMENTE no início
+  app.timeScale = 0;
+  console.log("Jogo pausado (timeScale:", app.timeScale, ")");
+
+  // GARANTE QUE O MENU ESTÁ VISÍVEL
+  if (menu) {
+    menu.style.display = "flex";
+    console.log("Menu HTML ativado");
+  }
+
+  // Esconde overlay de pausa no início
+  if (pauseOverlay) {
+    pauseOverlay.style.display = "none";
+  }
+
+  // Botão INICIAR
+  if (btnStart) {
+    btnStart.addEventListener("click", function() {
+      console.log("▶Iniciar jogo clicado");
+      if (menu) menu.style.display = "none";
+      app.timeScale = 1;
+      app.fire("game:resume");
+      
+      // Mostra botão de pausa quando o jogo inicia
+      if (btnPause) {
+        btnPause.style.display = "block";
+      }
+      
+      // Esconde overlay de pausa se estiver visível
+      if (pauseOverlay) {
+        pauseOverlay.style.display = "none";
+      }
+      
+      // Inicia música ao começar o jogo
+      playMusic();
+      
+      console.log("Jogo retomado (timeScale:", app.timeScale, ")");
+    });
+    console.log("Botão Iniciar conectado");
+  } else {
+    console.error("btnStart não encontrado!");
+  }
+
+  // Botão SAIR
+  if (btnQuit) {
+    btnQuit.addEventListener("click", function() {
+      console.log("🚪 Sair clicado");
+      stopMusic();
+      // Para web: volta para o menu principal
+      if (menu) {
+        menu.style.display = "flex";
+        app.timeScale = 0;
+        app.fire("game:pause");
+        
+        // Esconde botão de pausa no menu
+        if (btnPause) {
+          btnPause.style.display = "none";
+        }
+      }
+      // Para apps nativos: window.close()
+    });
+    console.log("Botão Sair conectado");
+  }
+
+  // Esconde botão de pausa inicialmente (só aparece durante o jogo)
+  if (btnPause) {
+    btnPause.style.display = "none";
+  }
+
+  // Salva referência global para controle externo
+  window.GAME_AUDIO = {
+    music: bgMusic,
+    isPlaying: function() { return isMusicPlaying; },
+    play: playMusic,
+    stop: stopMusic,
+    toggle: toggleMusic
+  };
+
+  // Controles de pausa globais
+  window.GAME_PAUSE = {
+    isPaused: function() { return isGamePaused; },
+    pause: function() { if (btnPause && !isGamePaused) btnPause.click(); },
+    resume: function() { if (btnPause && isGamePaused) btnPause.click(); },
+    toggle: function() { if (btnPause) btnPause.click(); }
+  };
+
+  console.log("MenuController configurado completamente!");
+}
 
   function loadGameScripts(callback) {
     var scripts = [
-      "scripts/layerManager.js", // ⭐ NOVO: Carrega primeiro o gerenciador de layers
+      "scripts/layerManager.js",
       "scripts/assetLoader.js",
       "scripts/playerController.js",
       "scripts/enemyAI.js",
@@ -16,21 +247,21 @@
       "scripts/uiManager.js",
     ];
     var loaded = 0;
-
+  
     function checkComplete() {
       loaded++;
       if (loaded === scripts.length) {
-        console.log("✅ All scripts loaded");
+        console.log("All scripts loaded");
         callback();
       }
     }
-
+  
     scripts.forEach(function (src) {
       var script = document.createElement("script");
       script.src = src + "?v=" + Date.now();
       script.onload = checkComplete;
       script.onerror = function () {
-        console.error("❌ Failed to load:", src);
+        console.error("Failed to load:", src);
         checkComplete();
       };
       document.head.appendChild(script);
@@ -48,46 +279,8 @@
     return mat;
   }
 
-  function createButton(app, screen, text, pos, size, onClick) {
-    var btn = new pc.Entity("Button_" + text);
-    btn.addComponent("element", {
-      type: pc.ELEMENTTYPE_IMAGE,
-      anchor: [0.5, 0.5, 0.5, 0.5],
-      pivot: [0.5, 0.5],
-      width: size.x,
-      height: size.y,
-      color: new pc.Color(0.2, 0.2, 0.25),
-      useInput: true,
-      opacity: 0.9,
-    });
-    btn.setLocalPosition(pos.x, pos.y, 0);
-    btn.addComponent("button", {
-      imageEntity: btn,
-      hoverTint: new pc.Color(0.3, 0.3, 0.4),
-      pressedTint: new pc.Color(0.15, 0.15, 0.2),
-    });
-
-    var label = new pc.Entity("Label");
-    label.addComponent("element", {
-      type: pc.ELEMENTTYPE_TEXT,
-      anchor: [0.5, 0.5, 0.5, 0.5],
-      pivot: [0.5, 0.5],
-      width: size.x,
-      height: size.y,
-      fontSize: 32,
-      color: new pc.Color(1, 1, 1),
-      text: text,
-      outlineColor: new pc.Color(0, 0, 0),
-      outlineThickness: 0.3,
-    });
-    btn.addChild(label);
-    screen.addChild(btn);
-    btn.button.on("click", onClick);
-    return btn;
-  }
-
   function main() {
-    console.log("🎮 Starting game with layer system...");
+    console.log("Starting game with layer system...");
 
     var canvas = document.getElementById("application-canvas");
     var app = new pc.Application(canvas, {
@@ -104,24 +297,33 @@
     });
 
     loadGameScripts(function () {
-      // Aguarda o asset loader carregar os assets
       if (typeof loadGameAssets === "function") {
-        console.log("📦 Loading game assets...");
+        console.log("Loading game assets...");
         loadGameAssets(app).then(function () {
-          console.log("✅ Assets loaded, building scene...");
+          console.log("Assets loaded, building scene...");
           buildScene(app);
+          
+          // Setup menu 
+          setTimeout(function() {
+            setupMenuController(app);
+          }, 100);
         });
       } else {
-        console.warn("⚠️ loadGameAssets not found, building scene without assets");
+        console.warn("loadGameAssets not found, building scene without assets");
         buildScene(app);
+        
+        // Setup menu 
+        setTimeout(function() {
+          setupMenuController(app);
+        }, 100);
       }
     });
   }
 
   function buildScene(app) {
-    // ⭐ SETUP LAYERS PRIMEIRO (ANTES DE CRIAR QUALQUER ENTIDADE)
+    // SETUP LAYERS PRIMEIRO
     var LAYERS = window.setupLayers(app);
-    console.log("🎨 Layers configuradas:", LAYERS);
+    console.log("Layers configuradas:", LAYERS);
 
     var world = new pc.Entity("World");
     app.root.addChild(world);
@@ -143,7 +345,6 @@
       orthoHeight: 14,
       nearClip: 0.1,
       farClip: 100,
-      // ⭐ Define quais layers a câmera renderiza
       layers: [
         LAYERS.BACKGROUND,
         LAYERS.WORLD,
@@ -175,7 +376,7 @@
       pivot: [0.5, 0.5],
       color: new pc.Color(0, 0, 0, 0.95),
       opacity: 0.95,
-      layers: [LAYERS.UI], // ⭐ UI na layer correta
+      layers: [LAYERS.UI],
     });
     ui.addChild(menuPanel);
 
@@ -184,7 +385,7 @@
       type: pc.ELEMENTTYPE_GROUP,
       anchor: [0, 0, 1, 1],
       pivot: [0.5, 0.5],
-      layers: [LAYERS.UI], // ⭐ UI na layer correta
+      layers: [LAYERS.UI],
     });
     ui.addChild(hudPanel);
 
@@ -193,7 +394,7 @@
       type: pc.ELEMENTTYPE_GROUP,
       anchor: [0, 0, 1, 1],
       pivot: [0.5, 0.5],
-      layers: [LAYERS.UI], // ⭐ UI na layer correta
+      layers: [LAYERS.UI],
     });
     pausePanel.enabled = false;
     ui.addChild(pausePanel);
@@ -206,10 +407,10 @@
       pivot: [0, 1],
       fontSize: 28,
       color: new pc.Color(1, 0.5, 0.5),
-      text: "👹 0",
+      text: "0",
       outlineColor: new pc.Color(0, 0, 0),
       outlineThickness: 0.3,
-      layers: [LAYERS.UI], // ⭐ UI na layer correta
+      layers: [LAYERS.UI],
     });
     enemyCountText.setLocalPosition(25, -25, 0);
     hudPanel.addChild(enemyCountText);
@@ -224,7 +425,7 @@
       text: "",
       outlineColor: new pc.Color(0, 0, 0),
       outlineThickness: 0.3,
-      layers: [LAYERS.UI], // ⭐ UI na layer correta
+      layers: [LAYERS.UI],
     });
     hintText.setLocalPosition(0, 25, 0);
     hudPanel.addChild(hintText);
@@ -239,41 +440,13 @@
       text: "",
       outlineColor: new pc.Color(0, 0, 0),
       outlineThickness: 0.3,
-      layers: [LAYERS.UI], // ⭐ UI na layer correta
+      layers: [LAYERS.UI],
     });
     progressBar.setLocalPosition(0, 60, 0);
     progressBar.enabled = false;
     hudPanel.addChild(progressBar);
 
-    // Menu Buttons
-    var btnStart = createButton(
-      app,
-      menuPanel,
-      "Start Game",
-      new pc.Vec3(0, 100, 0),
-      new pc.Vec2(280, 56),
-      function () {
-        console.log("🎮 Start button clicked!");
-        app.fire("game:reset");
-        app.fire("game:resume");
-        menuPanel.enabled = false;
-        hudPanel.enabled = true;
-      }
-    );
-
-    var btnExit = createButton(
-      app,
-      menuPanel,
-      "Exit",
-      new pc.Vec3(0, 20, 0),
-      new pc.Vec2(200, 48),
-      function () {
-        console.log("🚪 Exit button clicked");
-        window.close();
-      }
-    );
-
-    // Pega texturas carregadas do GAME_TEXTURES
+    // Texturas
     var heroTex = window.GAME_TEXTURES?.player || [];
     var enemyTex = window.GAME_TEXTURES?.enemy || [];
     var visionTex = window.GAME_TEXTURES?.vision || [];
@@ -281,7 +454,7 @@
     var altarTex = window.GAME_TEXTURES?.altar || [];
     var mapTex = window.GAME_TEXTURES?.world?.scenario;
 
-    console.log("🎨 Using textures:", {
+    console.log("Using textures:", {
       hero: heroTex.length,
       enemy: enemyTex.length,
       vision: visionTex.length,
@@ -290,11 +463,11 @@
       map: !!mapTex,
     });
 
-    // ⭐ BACKGROUND (map) - LAYER BACKGROUND
+    // BACKGROUND
     var background = new pc.Entity("Background");
     background.addComponent("render", { 
       type: "box",
-      layers: [LAYERS.BACKGROUND], // ⭐ Define a layer
+      layers: [LAYERS.BACKGROUND],
     });
     background.setLocalScale(24, 24, 0.1);
     background.setLocalPosition(0, 0, -1);
@@ -303,11 +476,11 @@
     }
     world.addChild(background);
 
-    // ⭐ PLAYER - LAYER PLAYER
+    // PLAYER
     var player = new pc.Entity("Player");
     player.addComponent("render", { 
       type: "box",
-      layers: [LAYERS.PLAYER], // ⭐ Define a layer
+      layers: [LAYERS.PLAYER],
     });
     player.setLocalScale(1, 1, 0.1);
     player.setLocalPosition(0, -5, 0.02);
@@ -324,7 +497,7 @@
     });
     world.addChild(player);
 
-    // ⭐ TORCHES - LAYER WORLD
+    // TORCHES
     var torchPositions = [
       new pc.Vec3(-11, -11, 0.01),
       new pc.Vec3(-11, 11, 0.01),
@@ -335,7 +508,7 @@
       var torch = new pc.Entity("Torch" + index);
       torch.addComponent("render", { 
         type: "box",
-        layers: [LAYERS.WORLD], // ⭐ Define a layer
+        layers: [LAYERS.WORLD],
       });
       torch.setLocalScale(0.5, 0.5, 0.1);
       torch.setLocalPosition(pos.x, pos.y, pos.z);
@@ -366,11 +539,11 @@
       world.addChild(torch);
     });
 
-    // ⭐ ALTAR - LAYER WORLD
+    // ALTAR
     var altar = new pc.Entity("Altar");
     altar.addComponent("render", { 
       type: "box",
-      layers: [LAYERS.WORLD], // ⭐ Define a layer
+      layers: [LAYERS.WORLD],
     });
     altar.setLocalScale(2, 2, 0.1);
     altar.setLocalPosition(0, 0, 0.02);
@@ -382,17 +555,17 @@
     altar.script.create("altar");
     world.addChild(altar);
 
-    // GameManager
+    // GAME MANAGER (sem menuController script)
     var gm = new pc.Entity("GameManager");
     gm.addComponent("script");
     gm.script.create("gameManager");
     world.addChild(gm);
 
-    // ⭐ ENEMY PREFAB - LAYER ENEMIES
+    // ENEMY PREFAB
     var enemyPrefab = new pc.Entity("EnemyPrefab");
     enemyPrefab.addComponent("render", { 
       type: "box",
-      layers: [LAYERS.ENEMIES], // ⭐ Define a layer
+      layers: [LAYERS.ENEMIES],
     });
     enemyPrefab.setLocalScale(0.9, 0.9, 0.1);
     if (enemyTex[0]) {
@@ -404,7 +577,7 @@
     enemyPrefab.enabled = false;
     gm.addChild(enemyPrefab);
 
-    // ⭐ IMPORTANTE: Salvar LAYERS globalmente para uso nos scripts
+    // Salvar LAYERS globalmente
     window.GAME_LAYERS = LAYERS;
 
     // Spawn Points
@@ -423,8 +596,6 @@
         enemyCountText: enemyCountText,
         hintText: hintText,
         progressBar: progressBar,
-        btnStart: btnStart,
-        btnExit: btnExit,
       },
     });
     ui.addChild(uiMgr);
@@ -436,20 +607,11 @@
     gm.script.gameManager.enemyPrefab = enemyPrefab;
     gm.script.gameManager.spawnPoints = [spawnPointTop];
 
-    // ⭐ INÍCIO AUTOMÁTICO (para debug)
-    // Descomente as linhas abaixo para voltar ao menu
-    // menuPanel.enabled = true;
-    // hudPanel.enabled = false;
-    // app.fire("game:pause");
-    
-    // 🎮 INICIA DIRETO NO JOGO (comentar para voltar ao menu)
-    console.log("🎮 Starting game directly...");
+    // Estado inicial: menu visível, jogo pausado
     menuPanel.enabled = false;
-    hudPanel.enabled = true;
-    app.fire("game:reset");
-    app.fire("game:resume");
-
-    console.log("✅ Scene built successfully with layers!");
+    hudPanel.enabled = false;
+    
+    console.log("Scene built successfully!");
   }
 
   if (document.readyState === "loading") {
@@ -458,3 +620,22 @@
     main();
   }
 })();
+
+// Connect scripts - ADICIONAR ESTA SEÇÃO
+setTimeout(function() {
+  if (gm.script && gm.script.gameManager) {
+      var gameManagerScript = gm.script.gameManager;
+      gameManagerScript.player = player;
+      gameManagerScript.altar = altar;
+      gameManagerScript.uiManager = uiMgr;
+      gameManagerScript.enemyPrefab = enemyPrefab;
+      gameManagerScript.spawnPoints = [spawnPointTop];
+      
+      console.log("GameManager conectado!");
+      console.log("- enemyPrefab:", !!enemyPrefab);
+      console.log("- player:", !!player);
+  } else {
+      console.error("GameManager script não encontrado!");
+  }
+}, 100);
+

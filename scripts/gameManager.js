@@ -38,7 +38,7 @@ GameManager.prototype._getDifficultyTable = function () {
 };
 
 GameManager.prototype.initialize = function () {
-    console.log("🎮 GameManager initializing...");
+    console.log("GameManager initializing...");
     
     // Persisted difficulty from menu (optional)
     try {
@@ -47,7 +47,7 @@ GameManager.prototype.initialize = function () {
     } catch(e) {}
 
     // State
-    this._state = 'playing'; // playing | paused | victory | defeat
+    this._state = 'paused'; // playing | paused | victory | defeat
     this._difficultyParams = this._getDifficultyTable()[this.difficulty] || this._getDifficultyTable().Normal;
     this._torchEntities = [];
     this._litCount = 0;
@@ -77,8 +77,8 @@ GameManager.prototype.initialize = function () {
     // Inform altar about total count
     this._updateAltar();
     
-    console.log("✅ GameManager initialized. Difficulty:", this.difficulty);
-    console.log("📊 Params:", this._difficultyParams);
+    console.log("GameManager initialized. Difficulty:", this.difficulty);
+    console.log("Params:", this._difficultyParams);
 };
 
 GameManager.prototype.onDestroy = function () {
@@ -95,7 +95,7 @@ GameManager.prototype._collectTorches = function () {
     var tagged = this.app.root.findByTag(this.torchTag);
     this._torchEntities = tagged || [];
     this._totalTorches = this._torchEntities.length;
-    console.log("🔥 Found", this._totalTorches, "torches");
+    console.log("Found", this._totalTorches, "torches");
     
     // compute lit count
     this._litCount = 0;
@@ -108,14 +108,14 @@ GameManager.prototype._collectTorches = function () {
 
 GameManager.prototype._onTorchLit = function (torchScript) {
     this._litCount++;
-    console.log("🔥 Torch lit! Total:", this._litCount, "/", this._totalTorches);
+    console.log("Torch lit! Total:", this._litCount, "/", this._totalTorches);
     this._updateHUD();
     this._updateAltar();
 
     // Increase max enemies when a torch is lit
     if (this._litCount <= 4) {
         this._currentMaxEnemies = 3 + this._litCount; // 4,5,6,7 for 1,2,3,4 torches
-        console.log("📈 Max enemies increased to:", this._currentMaxEnemies);
+        console.log("Max enemies increased to:", this._currentMaxEnemies);
     }
 
     if (this.requireAllLitForWin) {
@@ -125,7 +125,7 @@ GameManager.prototype._onTorchLit = function (torchScript) {
             // schedule a check after hold seconds
             this._victoryCheckTime = this.victoryHoldSeconds;
             this._pendingVictory = true;
-            console.log("🎉 All torches lit! Victory in", this.victoryHoldSeconds, "seconds...");
+            console.log("All torches lit! Victory in", this.victoryHoldSeconds, "seconds...");
         }
     }
 };
@@ -133,7 +133,7 @@ GameManager.prototype._onTorchLit = function (torchScript) {
 GameManager.prototype._onTorchUnlit = function (torchScript) {
     this._litCount = Math.max(0, this._litCount - 1);
     this._pendingVictory = false;
-    console.log("💨 Torch extinguished! Total:", this._litCount, "/", this._totalTorches);
+    console.log("Torch extinguished! Total:", this._litCount, "/", this._totalTorches);
     this._updateHUD();
     this._updateAltar();
 
@@ -159,13 +159,13 @@ GameManager.prototype._updateHUD = function () {
 
 GameManager.prototype._onPause = function () { 
     this._state = 'paused';
-    console.log("⏸️ Game paused");
+    console.log("Game paused");
 };
 
 GameManager.prototype._onResume = function () { 
     this._state = 'playing';
-    console.log("▶️ Game resumed - state is now:", this._state);
-    console.log("📊 Current status:", {
+    console.log("Game resumed - state is now:", this._state);
+    console.log("Current status:", {
         spawnTimer: this._spawnTimer.toFixed(2),
         enemies: this._enemies.length,
         maxEnemies: this._currentMaxEnemies
@@ -173,7 +173,7 @@ GameManager.prototype._onResume = function () {
 };
 
 GameManager.prototype._onRestart = function () {
-    console.log("🔄 Restarting game...");
+    console.log("Restarting game...");
     this.resetGame();
     this.app.fire('game:resume');
 };
@@ -181,7 +181,7 @@ GameManager.prototype._onRestart = function () {
 GameManager.prototype._onVictory = function () {
     if (this._state === 'victory') return;
     this._state = 'victory';
-    console.log("🎉 VICTORY!");
+    console.log("VICTORY!");
     this.app.fire('game:state', { state: 'victory' });
     this.app.fire('game:pause');
 };
@@ -189,7 +189,7 @@ GameManager.prototype._onVictory = function () {
 GameManager.prototype._onDefeat = function () {
     if (this._state === 'defeat') return;
     this._state = 'defeat';
-    console.log("💀 DEFEAT!");
+    console.log("DEFEAT!");
     this.app.fire('game:state', { state: 'defeat' });
     this.app.fire('game:pause');
 };
@@ -198,7 +198,7 @@ GameManager.prototype.update = function (dt) {
     if (this._state !== 'playing') {
         // Log apenas na primeira vez que detectar pause
         if (!this._loggedPause) {
-            console.log("⏸️ Update skipped - state is:", this._state);
+            console.log("Update skipped - state is:", this._state);
             this._loggedPause = true;
         }
         return;
@@ -231,7 +231,7 @@ GameManager.prototype.update = function (dt) {
     if (!this._lastLogTime) this._lastLogTime = 0;
     this._lastLogTime += dt;
     if (this._lastLogTime >= 5) {
-        console.log("⏱️ Spawn status:", {
+        console.log("Spawn status:", {
             timer: this._spawnTimer.toFixed(2),
             enemies: this._enemies.length,
             max: this._currentMaxEnemies
@@ -248,29 +248,29 @@ GameManager.prototype.update = function (dt) {
         });
         
         if (this._enemies.length < this._currentMaxEnemies) {
-            console.log("👹 Spawning enemy... Current:", this._enemies.length, "/ Max:", this._currentMaxEnemies);
+            console.log("Spawning enemy... Current:", this._enemies.length, "/ Max:", this._currentMaxEnemies);
             this._spawnEnemy();
             this._updateHUD();
         } else {
-            console.log("⚠️ Max enemies reached:", this._enemies.length, "/", this._currentMaxEnemies);
+            console.log("Max enemies reached:", this._enemies.length, "/", this._currentMaxEnemies);
         }
     }
 };
 
 GameManager.prototype._spawnEnemy = function () {
     if (!this.enemyPrefab) {
-        console.error("❌ No enemy prefab set!");
+        console.error("No enemy prefab set!");
         return;
     }
     
-    // ⭐ CORRIGIDO: Sempre usa spawn points, nunca o centro
+    // Sempre usa spawn points
     var pos;
     if (this.spawnPoints && this.spawnPoints.length > 0) {
         var sp = this.spawnPoints[Math.floor(Math.random() * this.spawnPoints.length)];
         pos = sp.getPosition().clone();
     } else {
         // Fallback: topo do mapa se não houver spawn points
-        console.warn("⚠️ No spawn points, using top of map");
+        console.warn("No spawn points, using top of map");
         pos = new pc.Vec3(
             Math.random() * 20 - 10, // x: -10 a 10
             10, // y: topo
@@ -278,7 +278,7 @@ GameManager.prototype._spawnEnemy = function () {
         );
     }
     
-    console.log("🎯 Spawning at:", pos.x.toFixed(2), pos.y.toFixed(2), pos.z.toFixed(2));
+    console.log("Spawning at:", pos.x.toFixed(2), pos.y.toFixed(2), pos.z.toFixed(2));
     
     // Clone enemy
     var clone = this.enemyPrefab.clone();
@@ -287,23 +287,23 @@ GameManager.prototype._spawnEnemy = function () {
     this.entity.addChild(clone);
     clone.setPosition(pos);
     
-    console.log("✅ Enemy cloned:", clone.name);
+    console.log("Enemy cloned:", clone.name);
     
-    // ⭐ CRITICAL: Aplica layers ao clone
+    // CRITICAL: Aplica layers ao clone
     if (window.GAME_LAYERS) {
         if (clone.render) {
             clone.render.layers = [window.GAME_LAYERS.ENEMIES];
-            console.log("✅ Applied ENEMIES layer");
+            console.log("Applied ENEMIES layer");
         } else {
-            console.error("❌ Clone has no render component!");
+            console.error("Clone has no render component!");
         }
     } else {
-        console.error("❌ GAME_LAYERS not found!");
+        console.error("GAME_LAYERS not found!");
     }
     
     // Ensure enemy has EnemyAI
     if (!clone.script || !clone.script.enemyAI) {
-        console.warn("⚠️ Clone missing enemyAI script, creating...");
+        console.warn("Clone missing enemyAI script, creating...");
         if (!clone.script) clone.addComponent('script');
         clone.script.create('enemyAI');
     }
@@ -311,29 +311,29 @@ GameManager.prototype._spawnEnemy = function () {
     if (clone.script && clone.script.enemyAI) {
         clone.script.enemyAI.gameManager = this.entity;
         clone.script.enemyAI.extinguishTime = this._difficultyParams.extinguishTime;
-        console.log("✅ Enemy AI configured");
+        console.log("Enemy AI configured");
     } else {
-        console.error("❌ Failed to create enemyAI script!");
+        console.error("Failed to create enemyAI script!");
     }
 
     this._enemies.push(clone);
-    console.log("✅ Enemy spawned! Total:", this._enemies.length, "| Position:", pos);
+    console.log("Enemy spawned! Total:", this._enemies.length, "| Position:", pos);
 };
 
 GameManager.prototype.resetGame = function () {
-    console.log("🔄 Resetting game...");
+    console.log("Resetting game...");
     
     // Re-read difficulty from localStorage if provided
     try {
         var saved = pc.platform.browser && window && window.localStorage.getItem('ash:difficulty');
         if (saved) {
             this.difficulty = saved;
-            console.log("📊 Loaded difficulty from localStorage:", saved);
+            console.log("Loaded difficulty from localStorage:", saved);
         }
     } catch(e) {}
     this._difficultyParams = this._getDifficultyTable()[this.difficulty] || this._getDifficultyTable().Normal;
     
-    console.log("📊 Using params:", this._difficultyParams);
+    console.log("Using params:", this._difficultyParams);
 
     // Reset max enemies
     this._currentMaxEnemies = 3;
@@ -349,7 +349,7 @@ GameManager.prototype.resetGame = function () {
     }
     this._enemies = [];
     this._spawnTimer = 2.0; // Reset spawn timer - primeiro spawn em 2s
-    console.log("⏱️ Spawn timer reset to:", this._spawnTimer);
+    console.log("Spawn timer reset to:", this._spawnTimer);
 
     // Reset torches
     this._collectTorches();
@@ -372,5 +372,6 @@ GameManager.prototype.resetGame = function () {
     this._updateHUD();
     this._updateAltar();
     
-    console.log("✅ Game reset complete. Ready to spawn enemies!");
+    console.log("Game reset complete. Ready to spawn enemies!");
 };
+

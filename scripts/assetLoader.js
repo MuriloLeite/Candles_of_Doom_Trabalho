@@ -2,7 +2,7 @@
 window.GAME_TEXTURES = {
   player: [],
   enemy: [],
-  vision: [], // NOVO: texturas de visão do inimigo
+  vision: [], 
   world: {},
   altar: [],
   torch: [],
@@ -70,8 +70,8 @@ function loadGameAssets(app) {
 
       loaded++;
       if (loaded === toLoad) {
-        console.log("✅ All assets loaded successfully!");
-        console.log("📦 Vision textures:", window.GAME_TEXTURES.vision);
+        console.log("All assets loaded successfully!");
+        console.log("Vision textures:", window.GAME_TEXTURES.vision);
         resolve(window.GAME_TEXTURES);
       }
     }
@@ -82,7 +82,7 @@ function loadGameAssets(app) {
       app.assets.add(asset);
       asset.once("load", () => onAssetLoaded(asset, "player", index));
       asset.once("error", (err) => {
-        console.error(`❌ Failed to load player asset ${index}:`, err);
+        console.error(`Failed to load player asset ${index}:`, err);
         loaded++;
         if (loaded === toLoad) resolve(window.GAME_TEXTURES);
       });
@@ -95,7 +95,7 @@ function loadGameAssets(app) {
       app.assets.add(asset);
       asset.once("load", () => onAssetLoaded(asset, "enemy", index));
       asset.once("error", (err) => {
-        console.error(`❌ Failed to load enemy asset ${index}:`, err);
+        console.error(`Failed to load enemy asset ${index}:`, err);
         loaded++;
         if (loaded === toLoad) resolve(window.GAME_TEXTURES);
       });
@@ -108,7 +108,7 @@ function loadGameAssets(app) {
       app.assets.add(asset);
       asset.once("load", () => onAssetLoaded(asset, "vision", index));
       asset.once("error", (err) => {
-        console.warn(`⚠️ Failed to load vision asset ${index}:`, err);
+        console.warn(`Failed to load vision asset ${index}:`, err);
         console.log("Will use solid color cone instead");
         loaded++;
         if (loaded === toLoad) resolve(window.GAME_TEXTURES);
@@ -122,7 +122,7 @@ function loadGameAssets(app) {
       app.assets.add(asset);
       asset.once("load", () => onAssetLoaded(asset, "torch", index));
       asset.once("error", (err) => {
-        console.error(`❌ Failed to load torch asset ${index}:`, err);
+        console.error(`Failed to load torch asset ${index}:`, err);
         loaded++;
         if (loaded === toLoad) resolve(window.GAME_TEXTURES);
       });
@@ -135,7 +135,7 @@ function loadGameAssets(app) {
       app.assets.add(asset);
       asset.once("load", () => onAssetLoaded(asset, "altar", index));
       asset.once("error", (err) => {
-        console.error(`❌ Failed to load altar asset ${index}:`, err);
+        console.error(`Failed to load altar asset ${index}:`, err);
         loaded++;
         if (loaded === toLoad) resolve(window.GAME_TEXTURES);
       });
@@ -149,7 +149,7 @@ function loadGameAssets(app) {
       app.assets.add(asset);
       asset.once("load", () => onAssetLoaded(asset, "world"));
       asset.once("error", (err) => {
-        console.error(`❌ Failed to load world asset ${name}:`, err);
+        console.error(`Failed to load world asset ${name}:`, err);
         loaded++;
         if (loaded === toLoad) resolve(window.GAME_TEXTURES);
       });

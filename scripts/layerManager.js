@@ -1,11 +1,10 @@
-/**
- * layerManager.js
- * Cria e gerencia layers do PlayCanvas Engine
- * Deve ser carregado ANTES de criar entidades
- */
+
+ //layerManager.js
+ //Cria e gerencia layers do PlayCanvas Engine
+
 
 function setupLayers(app) {
-  console.log("🎨 Configurando layers...");
+  console.log("Configurando layers...");
 
   // Obtém a composição de layers da aplicação
   const composition = app.scene.layers;
@@ -111,7 +110,7 @@ function setupLayers(app) {
     ];
   }
 
-  console.log("✅ Layers configuradas:", {
+  console.log("Layers configuradas:", {
     background: LAYER_IDS.BACKGROUND,
     world: LAYER_IDS.WORLD,
     objects: LAYER_IDS.OBJECTS,

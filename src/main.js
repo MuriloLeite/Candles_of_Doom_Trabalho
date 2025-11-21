@@ -177,8 +177,8 @@ async function main() {
   const texMap = find('images/mapa.jpg')?.resource;
   const heroTex = [find('images/heroi1.jpg').resource, find('images/heroi2.jpg').resource, find('images/heroi3.jpg').resource];
   const enemyTex = [find('images/enemy1.jpg').resource, find('images/enemy2.jpg').resource, find('images/enemy3.jpg').resource];
-  const torchUnlit = null;
-  const torchLit = null;
+  const torchUnlit = find('images/tocha-frente.png')?.resource;l;
+  const torchLit = find('images/tocha-frente.png')?.resource;l;
   const altarTex = [
     find('images/altar0.jpg').resource,
     find('images/altar1.jpg').resource,

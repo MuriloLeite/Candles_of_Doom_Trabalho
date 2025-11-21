@@ -24,7 +24,7 @@ PlayerController.attributes.add("hitboxSize", {
   default: [1.0, 1.2],
   title: "Hitbox Size (w,h)",
 });
-// ⭐ NOVO: Raio de interação com tochas
+// Raio de interação com tochas
 PlayerController.attributes.add("interactionRadius", {
   type: "number",
   default: 1.5,
@@ -59,7 +59,7 @@ PlayerController.prototype.initialize = function () {
   this._hitW = this.hitboxSize.x;
   this._hitH = this.hitboxSize.y;
 
-  // ⭐ NOVO: Estado de interação
+  // Estado de interação
   this.isInteractHeld = false; // se está segurando E
   this._nearbyTorch = null; // tocha mais próxima
   this._interactingTorch = null; // tocha sendo acesa no momento
@@ -75,7 +75,7 @@ PlayerController.prototype.update = function (dt) {
   this._move(dt);
   this._clampToBounds();
   this._updateSprite();
-  this._checkTorchInteraction(); // ⭐ NOVO
+  this._checkTorchInteraction(); 
 };
 
 // lê setas e WASD e normaliza direção
@@ -96,7 +96,7 @@ PlayerController.prototype._readInput = function () {
     this._dir.set(0, 0);
   }
   
-  // ⭐ NOVO: Interação (tecla E)
+  // Interação (tecla E)
   this.isInteractHeld = this.app.keyboard.isPressed(pc.KEY_E);
 };
 
@@ -151,7 +151,7 @@ PlayerController.prototype._collidesWithTorch = function (x, y) {
   return false;
 };
 
-// ⭐ NOVO: Verifica interação com tochas
+// Verifica interação com tochas
 PlayerController.prototype._checkTorchInteraction = function () {
   var playerPos = this.entity.getPosition();
   var torches = this.app.root.findByTag('torch');
@@ -172,11 +172,11 @@ PlayerController.prototype._checkTorchInteraction = function () {
     }
   }
 
-  // ⭐ Mostra hint se está perto de uma tocha apagada
+  // Mostra hint se está perto de uma tocha apagada
   if (closestTorch && !this.isInteractHeld) {
     var torchScript = closestTorch.script && closestTorch.script.torch;
     if (torchScript && !torchScript.isLit()) {
-      this.app.fire('ui:hint', '💡 Pressione E para acender a tocha');
+      this.app.fire('ui:hint', 'Pressione E para acender a tocha');
     }
   }
 
@@ -198,7 +198,7 @@ PlayerController.prototype._checkTorchInteraction = function () {
     if (torchScript && !torchScript.isLit()) {
       // Começa a acender
       if (this._interactingTorch !== this._nearbyTorch) {
-        console.log("🔥 Player começou a segurar E na tocha");
+        console.log("Player começou a segurar E na tocha");
         torchScript.beginIgnite(this.entity);
         this._interactingTorch = this._nearbyTorch;
       }
@@ -208,7 +208,7 @@ PlayerController.prototype._checkTorchInteraction = function () {
     if (this._interactingTorch) {
       var script = this._interactingTorch.script && this._interactingTorch.script.torch;
       if (script) {
-        console.log("❌ Player soltou E ou saiu do alcance");
+        console.log("Player soltou E ou saiu do alcance");
         script.cancelIgnite(this.entity);
       }
       this._interactingTorch = null;

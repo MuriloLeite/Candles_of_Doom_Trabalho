@@ -1,24 +1,12 @@
-/*
-  uiManager.js
-  - Handles Menu, HUD, Pause, Win/Lose
-  - Binds buttons, updates text, switches scenes
-  - Communicates with GameManager via app events
-*/
 
 var UiManager = pc.createScript("uiManager");
 
 // Panels
-UiManager.attributes.add("menuPanel", { type: "entity", title: "Menu Panel" });
-UiManager.attributes.add("hudPanel", { type: "entity", title: "HUD Panel" });
-UiManager.attributes.add("pausePanel", {
-  type: "entity",
-  title: "Pause Panel",
-});
-UiManager.attributes.add("winPanel", { type: "entity", title: "Win Panel" });
-UiManager.attributes.add("losePanel", { type: "entity", title: "Lose Panel" });
-UiManager.attributes.add("creditsPanel", {
-  type: "entity",
-  title: "Credits Panel",
+  UiManager.attributes.add("menuPanel", { type: "entity", title: "Menu Panel" });
+  UiManager.attributes.add("hudPanel", { type: "entity", title: "HUD Panel" });
+  UiManager.attributes.add("pausePanel", {
+    type: "entity",
+    title: "Pause Panel",
 });
 
 // HUD elements
@@ -56,7 +44,7 @@ UiManager.attributes.add("btnExit", {
   title: "Exit Button (web: back to menu)",
 });
 
-// Buttons (Pause/Win/Lose)
+// Buttons
 UiManager.attributes.add("btnResume", {
   type: "entity",
   title: "Resume Button",
@@ -127,7 +115,7 @@ UiManager.prototype._bindButton = function (btnEntity, handler, scope) {
 
 UiManager.prototype._onHudUpdate = function (data) {
   if (this.torchesText && this.torchesText.element) {
-    this.torchesText.element.text = "🔥 " + data.lit + " / " + data.total;
+    this.torchesText.element.text = "Fogo" + data.lit + " / " + data.total;
   }
   if (this.difficultyText && this.difficultyText.element) {
     this.difficultyText.element.text = data.difficulty;
@@ -137,7 +125,7 @@ UiManager.prototype._onHudUpdate = function (data) {
     this.enemyCountText.element &&
     data.enemies !== undefined
   ) {
-    this.enemyCountText.element.text = "👹 " + data.enemies;
+    this.enemyCountText.element.text = "Inimigo" + data.enemies;
   }
   // DOM fallback
   if (typeof document !== "undefined") {
@@ -191,11 +179,11 @@ UiManager.prototype._onSetDifficulty = function (level) {
 };
 
 UiManager.prototype._onStart = function () {
-  // Engine-only: don't change scene, just switch panels and resume
+  console.log("Start button clicked!");
   this._state = "playing";
   this._showOnly(this.hudPanel);
-  this.app.fire("game:reset"); // ensure fresh start
-  this.app.fire("game:resume");
+  this.app.fire("game:reset");
+  this.app.fire("game:resume"); 
 };
 
 UiManager.prototype._onExit = function () {
@@ -238,9 +226,6 @@ UiManager.prototype._showOnly = function (panel) {
     this.menuPanel,
     this.hudPanel,
     this.pausePanel,
-    this.winPanel,
-    this.losePanel,
-    this.creditsPanel,
   ];
   for (var i = 0; i < panels.length; i++) {
     if (!panels[i]) continue;
@@ -248,4 +233,3 @@ UiManager.prototype._showOnly = function (panel) {
   }
 };
 
-// No scene loading in engine-only bootstrap

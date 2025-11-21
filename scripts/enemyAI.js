@@ -52,11 +52,11 @@ EnemyAI.prototype.initialize = function () {
   // Remove cone antigo se existir
   var oldVision = this.entity.findByName(this.entity.name + "_vision");
   if (oldVision) {
-    console.log("🗑️ Removing old vision cone");
+    console.log("Removing old vision cone");
     oldVision.destroy();
   }
   
-  // ✅ CRIAR CONE TRIANGULAR REAL
+  // CRIAR CONE TRIANGULAR REAL
   this._vision = new pc.Entity(this.entity.name + "_vision");
   
   // Criar mesh triangular customizado
@@ -69,12 +69,12 @@ EnemyAI.prototype.initialize = function () {
   this._vision.setLocalPosition(0, 0, 0.05);
   this._vision.enabled = true;
   
-  // ✅ APLICA LAYER (se existir)
+  // APLICA LAYER (se existir)
   if (window.GAME_LAYERS && window.GAME_LAYERS.VISION) {
     this._vision.render.layers = [window.GAME_LAYERS.VISION];
-    console.log("✅ Vision layer applied:", window.GAME_LAYERS.VISION);
+    console.log("Vision layer applied:", window.GAME_LAYERS.VISION);
   } else {
-    console.warn("⚠️ VISION layer not found - using default layers");
+    console.warn("VISION layer not found - using default layers");
     this._vision.render.layers = [pc.LAYERID_WORLD];
   }
 
@@ -89,11 +89,11 @@ EnemyAI.prototype.initialize = function () {
   // Contador global de hits
   if (window.PLAYER_HITS === undefined) window.PLAYER_HITS = 0;
 
-  console.log("👹 Enemy initialized with vision cone!");
+  console.log("Enemy initialized with vision cone!");
 };
 
 EnemyAI.prototype._createTriangleMesh = function() {
-  console.log("🔨 Creating triangle mesh...");
+  console.log("Creating triangle mesh...");
   
   try {
     // Criar geometria triangular customizada (cone maior e mais visível)
@@ -125,7 +125,7 @@ EnemyAI.prototype._createTriangleMesh = function() {
     mesh.setIndices(indices);
     mesh.update(pc.PRIMITIVE_TRIANGLES);
     
-    console.log("✅ Mesh created successfully");
+    console.log("Mesh created successfully");
     
     // Criar material ANTES de adicionar o componente
     var material = new pc.StandardMaterial();
@@ -138,7 +138,7 @@ EnemyAI.prototype._createTriangleMesh = function() {
     material.cull = pc.CULLFACE_NONE; // Renderizar ambos os lados
     material.update();
     
-    console.log("✅ Material created");
+    console.log("Material created");
     
     // Criar mesh instance com o material
     var meshInstance = new pc.MeshInstance(mesh, material);
@@ -149,24 +149,24 @@ EnemyAI.prototype._createTriangleMesh = function() {
       meshInstances: [meshInstance]
     });
     
-    console.log("✅ Render component added");
+    console.log("Render component added");
     
-    // Configurar escala do cone (maior para ser mais visível)
+    // Configurar escala do cone 
     this._vision.setLocalScale(
       this.visionScale * 0.8, 
       this.sightDistance * 0.8, 
       1
     );
     
-    console.log("✅ Scale set to:", this.visionScale * 0.8, this.sightDistance * 0.8);
+    console.log("Scale set to:", this.visionScale * 0.8, this.sightDistance * 0.8);
     
     // Guardar referência do material
     this._visionMat = material;
     
-    console.log("✅ Vision cone fully created!");
+    console.log("Vision cone fully created!");
     
   } catch (error) {
-    console.error("❌ Error creating vision cone:", error);
+    console.error("Error creating vision cone:", error);
   }
 };
 
@@ -268,7 +268,7 @@ EnemyAI.prototype._updateSpriteAndVision = function () {
   var texIdx = 1;
   var flip = false;
 
-  // 🎯 CALCULAR ÂNGULO DIRETO DO VETOR DE MOVIMENTO
+  // CALCULAR ÂNGULO DIRETO DO VETOR DE MOVIMENTO
   // atan2 retorna o ângulo em radianos, convertemos para graus
   var angleRad = Math.atan2(dir.y, dir.x);
   var angleDeg = angleRad * (180 / Math.PI);
@@ -314,7 +314,7 @@ EnemyAI.prototype._updateSpriteAndVision = function () {
   var s = this.entity.getLocalScale();
   this.entity.setLocalScale(flip ? -Math.abs(s.x) : Math.abs(s.x), s.y, s.z);
 
-  // 🎯 ATUALIZAR CONE DE VISÃO - ROTAÇÃO PRECISA
+  // ATUALIZAR CONE DE VISÃO - ROTAÇÃO PRECISA
   this._vision.setLocalEulerAngles(0, 0, visionAngle);
   
   // Offset do cone baseado na direção EXATA
@@ -378,10 +378,10 @@ EnemyAI.prototype.checkCollisionWithPlayer = function () {
 
     if (window.PLAYER_HITS == null) window.PLAYER_HITS = 0;
     window.PLAYER_HITS++;
-    console.log(`💥 Player hit by enemy! Hits: ${window.PLAYER_HITS} / 4`);
+    console.log(`Player hit by enemy! Hits: ${window.PLAYER_HITS} / 4`);
 
     if (window.PLAYER_HITS >= 4) {
-      console.log("💀 GAME OVER - Player defeated!");
+      console.log("GAME OVER - Player defeated!");
       this.triggerGameOver();
     }
   }

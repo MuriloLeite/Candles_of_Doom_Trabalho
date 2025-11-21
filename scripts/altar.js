@@ -17,13 +17,13 @@ Altar.prototype.initialize = function () {
     this._total = 4; // default, GameManager may override via event
     this._winPending = false;
 
-    console.log("🕯️ Altar initializing...");
+    console.log("Altar initializing...");
 
     // Fallback 1: Buscar da propriedade customizada da entidade
     var hasValidTextures = this.frameTextures && this.frameTextures.length > 0 && this.frameTextures[0] !== null;
     if (!hasValidTextures && this.entity._altarTextures) {
         this.frameTextures = this.entity._altarTextures;
-        console.log('✅ Altar using entity._altarTextures:', this.frameTextures.length);
+        console.log('Altar using entity._altarTextures:', this.frameTextures.length);
         hasValidTextures = true;
     }
     
@@ -31,7 +31,7 @@ Altar.prototype.initialize = function () {
     if (!hasValidTextures) {
         if (window.GAME_TEXTURES && window.GAME_TEXTURES.altar) {
             this.frameTextures = window.GAME_TEXTURES.altar;
-            console.log('✅ Altar using global textures:', this.frameTextures.length);
+            console.log('Altar using global textures:', this.frameTextures.length);
         }
     }
 
@@ -41,7 +41,7 @@ Altar.prototype.initialize = function () {
     // Apply initial frame (0 torches lit)
     this._applyFrame();
 
-    console.log("🕯️ Altar initialized with", this.frameTextures ? this.frameTextures.length : 0, "textures");
+    console.log("Altar initialized with", this.frameTextures ? this.frameTextures.length : 0, "textures");
 };
 
 Altar.prototype.onDestroy = function () {
