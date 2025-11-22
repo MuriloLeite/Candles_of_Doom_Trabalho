@@ -189,26 +189,29 @@ function setupMenuController(app) {
     console.error("btnStart não encontrado!");
   }
 
-  // Botão SAIR
-  if (btnQuit) {
-    btnQuit.addEventListener("click", function() {
-      console.log("🚪 Sair clicado");
-      stopMusic();
-      // Para web: volta para o menu principal
-      if (menu) {
-        menu.style.display = "flex";
-        app.timeScale = 0;
-        app.fire("game:pause");
-        
-        // Esconde botão de pausa no menu
-        if (btnPause) {
-          btnPause.style.display = "none";
-        }
+  btnQuit.addEventListener("click", function() {
+    console.log("🚪 Sair clicado");
+    stopMusic();
+  
+    // Se o jogo ainda não começou, sair da aplicação
+    if (app.timeScale === 0) {
+      window.close(); // tenta fechar aba
+      history.back(); // volta caso não feche
+      return;
+    }
+  
+    // Se já está no jogo, volta ao menu
+    if (menu) {
+      menu.style.display = "flex";
+      app.timeScale = 0;
+      app.fire("game:pause");
+  
+      if (btnPause) {
+        btnPause.style.display = "none";
       }
-      // Para apps nativos: window.close()
-    });
-    console.log("Botão Sair conectado");
-  }
+    }
+  });
+  
 
   // Esconde botão de pausa inicialmente (só aparece durante o jogo)
   if (btnPause) {
