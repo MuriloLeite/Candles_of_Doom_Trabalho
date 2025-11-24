@@ -1,180 +1,137 @@
-// enemyAI.js - VERSÃO CORRIGIDA COM CONE TRIANGULAR FUNCIONAL
-// Wander + visão com sprite + hitbox AABB que conta 4 hits até Game Over
+// enemyAI.js - CONE DE VISÃO COMPLETAMENTE CORRIGIDO
+// O cone agora SEMPRE aponta na direção que o inimigo está olhando
 
 var EnemyAI = pc.createScript("enemyAI");
 
-EnemyAI.attributes.add("speedWander", { type: "number", default: 1.0 });
-EnemyAI.attributes.add("speedChase", { type: "number", default: 2.2 });
-EnemyAI.attributes.add("sightDistance", { type: "number", default: 8 });
-EnemyAI.attributes.add("sightAngleDeg", { type: "number", default: 120 });
+EnemyAI.attributes.add("speedWander", { type: "number", default: 1.2 });
+EnemyAI.attributes.add("speedChase", { type: "number", default: 2.5 });
+EnemyAI.attributes.add("sightDistance", { type: "number", default: 6.5 });
+EnemyAI.attributes.add("sightAngleDeg", { type: "number", default: 85 });
 EnemyAI.attributes.add("boundsMin", { type: "vec2", default: [-11, -11] });
 EnemyAI.attributes.add("boundsMax", { type: "vec2", default: [11, 11] });
 EnemyAI.attributes.add("wanderChangeInterval", {
   type: "number",
   default: 2.5,
 });
-EnemyAI.attributes.add("hitboxSize", {
-  type: "vec2",
-  default: [1.0, 1.2],
-  title: "Hitbox Size (w,h)",
-});
-EnemyAI.attributes.add("visionScale", {
-  type: "number",
-  default: 8.0,
-  title: "Vision Cone Scale",
-});
+EnemyAI.attributes.add("hitboxSize", { type: "vec2", default: [0.9, 1.0] });
+EnemyAI.attributes.add("debugVision", { type: "boolean", default: false });
 
 EnemyAI.prototype.initialize = function () {
   this._state = "wander";
   this._wanderTimer = 0;
   this._targetPos = this._randomPoint();
   this._player = this.app.root.findByName("Player");
-  this._lastMoveDir = new pc.Vec3(1, 0, 0);
-  this._currentDirection = "right";
 
-  // Texturas do inimigo
+  // Direção que o inimigo está OLHANDO (importante para o cone)
+  this._facingDirection = new pc.Vec2(0, 1); // Começa olhando para cima
+  this._moveDirection = new pc.Vec2(0, 0);
+
+  this._currentSprite = 1; // Começa com sprite de frente (olhando para cima)
+  this._isFlipped = false;
+
+  // Busca texturas do inimigo
   this.frameTextures = window.GAME_TEXTURES?.enemy || [];
 
-  // Material do inimigo
-  var mi =
-    this.entity.render &&
-    this.entity.render.meshInstances &&
-    this.entity.render.meshInstances[0];
+  console.log("🎨 Enemy textures loaded:", this.frameTextures.length, "frames");
+  console.log("  [0]=costas(baixo), [1]=frente(cima), [2]=lateral");
+
+  var mi = this.entity.render?.meshInstances?.[0];
   if (mi) {
     this._material = mi.material || new pc.StandardMaterial();
     mi.material = this._material;
-  } else {
-    this._material = null;
   }
 
   console.log("🆕 Creating vision cone for", this.entity.name);
-  
-  // Remove cone antigo se existir
-  var oldVision = this.entity.findByName(this.entity.name + "_vision");
-  if (oldVision) {
-    console.log("Removing old vision cone");
-    oldVision.destroy();
-  }
-  
-  // CRIAR CONE TRIANGULAR REAL
-  this._vision = new pc.Entity(this.entity.name + "_vision");
-  
-  // Criar mesh triangular customizado
-  this._createTriangleMesh();
-  
-  // Adiciona à hierarquia
-  this.entity.addChild(this._vision);
-  
-  // Posição inicial
-  this._vision.setLocalPosition(0, 0, 0.05);
-  this._vision.enabled = true;
-  
-  // APLICA LAYER (se existir)
-  if (window.GAME_LAYERS && window.GAME_LAYERS.VISION) {
-    this._vision.render.layers = [window.GAME_LAYERS.VISION];
-    console.log("Vision layer applied:", window.GAME_LAYERS.VISION);
-  } else {
-    console.warn("VISION layer not found - using default layers");
-    this._vision.render.layers = [pc.LAYERID_WORLD];
-  }
 
-  // Hitbox sizes
+  var oldVision = this.entity.findByName(this.entity.name + "_vision");
+  if (oldVision) oldVision.destroy();
+
+  this._createVisionCone();
+
   this._hitW = this.hitboxSize.x;
   this._hitH = this.hitboxSize.y;
-
-  // Cooldown para múltiplos hits
   this._lastHitTime = 0;
   this._hitCooldown = 0.8;
 
-  // Contador global de hits
   if (window.PLAYER_HITS === undefined) window.PLAYER_HITS = 0;
 
-  console.log("Enemy initialized with vision cone!");
+  console.log("✅ Enemy initialized:", this.entity.name);
 };
 
-EnemyAI.prototype._createTriangleMesh = function() {
-  console.log("Creating triangle mesh...");
-  
+EnemyAI.prototype._createVisionCone = function () {
+  this._vision = new pc.Entity(this.entity.name + "_vision");
+
   try {
-    // Criar geometria triangular customizada (cone maior e mais visível)
+    // ✅ Geometria corrigida: cone aponta para Y+ (cima) no espaço local
     var vertices = new Float32Array([
-      0, 0, 0,           // Ponto de origem (centro)
-      -0.5, 1, 0,        // Ponta esquerda
-      0.5, 1, 0          // Ponta direita
+      0,
+      0,
+      0, // Base (origem)
+      -0.42,
+      1,
+      0, // Ponta esquerda
+      0.42,
+      1,
+      0, // Ponta direita
     ]);
-    
+
     var indices = new Uint16Array([0, 1, 2]);
-    
-    var normals = new Float32Array([
-      0, 0, 1,
-      0, 0, 1,
-      0, 0, 1
-    ]);
-    
-    var uvs = new Float32Array([
-      0.5, 0,
-      0, 1,
-      1, 1
-    ]);
-    
-    // Criar mesh
+    var normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]);
+    var uvs = new Float32Array([0.5, 0, 0, 1, 1, 1]);
+
     var mesh = new pc.Mesh(this.app.graphicsDevice);
     mesh.setPositions(vertices);
     mesh.setNormals(normals);
     mesh.setUvs(0, uvs);
     mesh.setIndices(indices);
     mesh.update(pc.PRIMITIVE_TRIANGLES);
-    
-    console.log("Mesh created successfully");
-    
-    // Criar material ANTES de adicionar o componente
+
     var material = new pc.StandardMaterial();
-    material.diffuse.set(1, 1, 0); // Amarelo
+    material.diffuse.set(1, 1, 0);
     material.emissive.set(1, 1, 0);
-    material.emissiveIntensity = 1;
-    material.opacity = 0.6;
+    material.emissiveIntensity = 0.7;
+    material.opacity = 0.4;
     material.blendType = pc.BLEND_NORMAL;
     material.depthWrite = false;
-    material.cull = pc.CULLFACE_NONE; // Renderizar ambos os lados
+    material.cull = pc.CULLFACE_NONE;
     material.update();
-    
-    console.log("Material created");
-    
-    // Criar mesh instance com o material
+
     var meshInstance = new pc.MeshInstance(mesh, material);
-    
-    // Adicionar componente render
-    this._vision.addComponent('render', {
-      type: 'asset',
-      meshInstances: [meshInstance]
+
+    this._vision.addComponent("render", {
+      type: "asset",
+      meshInstances: [meshInstance],
     });
-    
-    console.log("Render component added");
-    
-    // Configurar escala do cone 
+
     this._vision.setLocalScale(
-      this.visionScale * 0.8, 
-      this.sightDistance * 0.8, 
+      this.sightDistance * 0.85,
+      this.sightDistance * 1.0,
       1
     );
-    
-    console.log("Scale set to:", this.visionScale * 0.8, this.sightDistance * 0.8);
-    
-    // Guardar referência do material
+
     this._visionMat = material;
-    
-    console.log("Vision cone fully created!");
-    
+
+    this.entity.addChild(this._vision);
+    this._vision.setLocalPosition(0, 0, 0.05);
+
+    if (window.GAME_LAYERS?.VISION) {
+      this._vision.render.layers = [window.GAME_LAYERS.VISION];
+    } else {
+      this._vision.render.layers = [pc.LAYERID_WORLD];
+    }
+
+    console.log("✅ Vision cone created successfully!");
   } catch (error) {
-    console.error("Error creating vision cone:", error);
+    console.error("❌ Error creating vision cone:", error);
   }
 };
 
 EnemyAI.prototype._randomPoint = function () {
   var min = this.boundsMin,
     max = this.boundsMax;
-  var x = min.x + Math.random() * (max.x - min.x);
-  var y = min.y + Math.random() * (max.y - min.y);
+  var margin = 2;
+  var x = min.x + margin + Math.random() * (max.x - min.x - margin * 2);
+  var y = min.y + margin + Math.random() * (max.y - min.y - margin * 2);
   return new pc.Vec3(x, y, 0);
 };
 
@@ -184,7 +141,6 @@ EnemyAI.prototype.update = function (dt) {
     if (!this._player) return;
   }
 
-  // Wander change
   this._wanderTimer -= dt;
   if (this._wanderTimer <= 0 && this._state === "wander") {
     this._targetPos = this._randomPoint();
@@ -192,12 +148,14 @@ EnemyAI.prototype.update = function (dt) {
       this.wanderChangeInterval + Math.random() * this.wanderChangeInterval;
   }
 
-  // Detect player in sight
-  if (this._isPlayerInSight()) {
+  var playerInSight = this._isPlayerInCone();
+
+  if (playerInSight) {
     this._state = "chase";
     this._targetPos = this._player.getPosition().clone();
+    this._chaseLoseTimer = 1.5;
   } else if (this._state === "chase") {
-    if (!this._chaseLoseTimer) this._chaseLoseTimer = 0.8;
+    if (!this._chaseLoseTimer) this._chaseLoseTimer = 1.5;
     this._chaseLoseTimer -= dt;
     if (this._chaseLoseTimer <= 0) {
       this._state = "wander";
@@ -205,136 +163,279 @@ EnemyAI.prototype.update = function (dt) {
     }
   }
 
-  // Move
   var speed = this._state === "chase" ? this.speedChase : this.speedWander;
-  this._moveToward(this._targetPos, speed, dt);
+  this._moveTowardTarget(this._targetPos, speed, dt);
 
-  // Update sprite + vision
-  this._updateSpriteAndVision();
+  // ✅ ATUALIZA VISUAIS (sprite + cone) DEPOIS DO MOVIMENTO
+  this._updateVisuals();
 
-  // Check collision with player
-  this.checkCollisionWithPlayer();
+  if (this.debugVision && this._player) {
+    this._drawDebug();
+  }
+
+  this._checkPlayerCollision();
 };
 
-EnemyAI.prototype._moveToward = function (target, speed, dt) {
+// Movimento e atualização de direção COM COLISÃO
+EnemyAI.prototype._moveTowardTarget = function (target, speed, dt) {
   var cur = this.entity.getPosition();
-  var dir = new pc.Vec3(target.x - cur.x, target.y - cur.y, 0);
-  var len = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
-  if (len < 0.001) return;
-  dir.x /= len;
-  dir.y /= len;
-  this._lastMoveDir = dir.clone();
+  var dx = target.x - cur.x;
+  var dy = target.y - cur.y;
+  var dist = Math.sqrt(dx * dx + dy * dy);
 
-  this.entity.translate(dir.x * speed * dt, dir.y * speed * dt, 0);
+  if (dist < 0.1) {
+    this._moveDirection.set(0, 0);
+    return;
+  }
 
+  // Normaliza direção de movimento
+  dx /= dist;
+  dy /= dist;
+
+  // ✅ ATUALIZA DIREÇÃO DE FACING IMEDIATAMENTE
+  this._facingDirection.set(dx, dy);
+  this._moveDirection.set(dx, dy);
+
+  // Calcula nova posição
+  var moveX = dx * speed * dt;
+  var moveY = dy * speed * dt;
+  var newX = cur.x + moveX;
+  var newY = cur.y + moveY;
+
+  // ✅ VERIFICA COLISÃO ANTES DE MOVER
+  if (!this._collidesWithObjects(newX, newY)) {
+    this.entity.translate(moveX, moveY, 0);
+  } else {
+    // Tenta mover só em X
+    if (!this._collidesWithObjects(newX, cur.y)) {
+      this.entity.translate(moveX, 0, 0);
+    }
+    // Tenta mover só em Y
+    else if (!this._collidesWithObjects(cur.x, newY)) {
+      this.entity.translate(0, moveY, 0);
+    }
+    // Se não conseguir, procura novo alvo (se estiver em wander)
+    else if (this._state === "wander") {
+      this._targetPos = this._randomPoint();
+      this._wanderTimer = 0.1; // Muda rápido
+    }
+  }
+
+  // Clamp bounds
   var p = this.entity.getLocalPosition();
   p.x = pc.math.clamp(p.x, this.boundsMin.x, this.boundsMax.x);
   p.y = pc.math.clamp(p.y, this.boundsMin.y, this.boundsMax.y);
   this.entity.setLocalPosition(p);
 };
 
-EnemyAI.prototype._isPlayerInSight = function () {
-  if (!this._player) return false;
-  var myPos = this.entity.getPosition();
-  var playerPos = this._player.getPosition();
-  var v = new pc.Vec3(playerPos.x - myPos.x, playerPos.y - myPos.y, 0);
-  var dist = Math.sqrt(v.x * v.x + v.y * v.y);
-  if (dist > this.sightDistance) return false;
+// ✅ NOVA: Verifica colisão com objetos decorativos
+EnemyAI.prototype._collidesWithObjects = function (x, y) {
+  var enemyHalfW = this._hitW / 2;
+  var enemyHalfH = this._hitH / 2;
 
-  var forward =
-    this._lastMoveDir && this._lastMoveDir.lengthSq() > 0
-      ? this._lastMoveDir.clone()
-      : new pc.Vec3(1, 0, 0);
-  forward.normalize();
-  v.normalize();
-  var dot = forward.x * v.x + forward.y * v.y;
-  dot = Math.max(-1, Math.min(1, dot));
-  var angleDeg = Math.acos(dot) * (180 / Math.PI);
-  return angleDeg <= this.sightAngleDeg * 0.5;
+  var enemyBox = {
+    minX: x - enemyHalfW,
+    maxX: x + enemyHalfW,
+    minY: y - enemyHalfH,
+    maxY: y + enemyHalfH,
+  };
+
+  // Busca todos os objetos decorativos
+  var objects = [];
+
+  // Bancos
+  for (var i = 0; i < 4; i++) {
+    var banco = this.app.root.findByName("Banco" + i);
+    if (banco) objects.push({ entity: banco, halfW: 1.0, halfH: 1.0 });
+  }
+
+  // Postes
+  for (var j = 0; j < 2; j++) {
+    var poste = this.app.root.findByName("Poste" + j);
+    if (poste) objects.push({ entity: poste, halfW: 0.6, halfH: 1.1 });
+  }
+
+  // Portal
+  var portal = this.app.root.findByName("Portal");
+  if (portal) objects.push({ entity: portal, halfW: 1.75, halfH: 1.75 });
+
+  // Colisão com tochas também
+  var torches = this.app.root.findByTag("torch");
+  for (var t = 0; t < torches.length; t++) {
+    objects.push({ entity: torches[t], halfW: 0.25, halfH: 0.25 });
+  }
+
+  // Verifica colisão AABB com cada objeto
+  for (var k = 0; k < objects.length; k++) {
+    var obj = objects[k];
+    var pos = obj.entity.getPosition();
+
+    var objBox = {
+      minX: pos.x - obj.halfW,
+      maxX: pos.x + obj.halfW,
+      minY: pos.y - obj.halfH,
+      maxY: pos.y + obj.halfH,
+    };
+
+    // Teste AABB
+    if (
+      !(
+        enemyBox.maxX < objBox.minX ||
+        enemyBox.minX > objBox.maxX ||
+        enemyBox.maxY < objBox.minY ||
+        enemyBox.minY > objBox.maxY
+      )
+    ) {
+      return true; // Colidiu
+    }
+  }
+
+  return false;
 };
 
-EnemyAI.prototype._updateSpriteAndVision = function () {
-  if (!this._vision || !this._visionMat) return;
-  
-  var dir = this._lastMoveDir || new pc.Vec3(1, 0, 0);
-  if (dir.lengthSq() === 0) dir.set(1, 0, 0);
-  
-  // Normalizar direção
-  dir.normalize();
-  
-  var absX = Math.abs(dir.x);
-  var absY = Math.abs(dir.y);
+// Detecção de player no cone
+EnemyAI.prototype._isPlayerInCone = function () {
+  if (!this._player) return false;
 
-  var texIdx = 1;
+  var enemyPos = this.entity.getPosition();
+  var playerPos = this._player.getPosition();
+
+  var dx = playerPos.x - enemyPos.x;
+  var dy = playerPos.y - enemyPos.y;
+  var distToPlayer = Math.sqrt(dx * dx + dy * dy);
+
+  if (distToPlayer > this.sightDistance) return false;
+  if (distToPlayer < 0.1) return true;
+
+  var toPlayerX = dx / distToPlayer;
+  var toPlayerY = dy / distToPlayer;
+
+  var facingX = this._facingDirection.x;
+  var facingY = this._facingDirection.y;
+  var facingLen = Math.sqrt(facingX * facingX + facingY * facingY);
+  if (facingLen > 0) {
+    facingX /= facingLen;
+    facingY /= facingLen;
+  }
+
+  var dot = facingX * toPlayerX + facingY * toPlayerY;
+  var angleDeg = Math.acos(Math.max(-1, Math.min(1, dot))) * (180 / Math.PI);
+
+  if (angleDeg > this.sightAngleDeg * 0.5) return false;
+
+  // Verificação do triângulo exato
+  var angleToRotate = Math.atan2(facingY, facingX) - Math.PI / 2;
+  var cos = Math.cos(-angleToRotate);
+  var sin = Math.sin(-angleToRotate);
+
+  var localX = dx * cos - dy * sin;
+  var localY = dx * sin + dy * cos;
+
+  if (localY < 0) return false;
+  if (localY > this.sightDistance) return false;
+
+  var halfAngleRad = this.sightAngleDeg * 0.5 * (Math.PI / 180);
+  var maxWidthAtBase = this.sightDistance * Math.tan(halfAngleRad);
+  var maxWidthAtDepth = (localY / this.sightDistance) * maxWidthAtBase;
+
+  if (Math.abs(localX) > maxWidthAtDepth) return false;
+
+  return true;
+};
+
+// ✅ ATUALIZAÇÃO VISUAL CORRIGIDA - Sincroniza sprite E cone
+EnemyAI.prototype._updateVisuals = function () {
+  if (!this._vision || !this._visionMat) return;
+
+  var fx = this._facingDirection.x;
+  var fy = this._facingDirection.y;
+
+  // Normaliza
+  var len = Math.sqrt(fx * fx + fy * fy);
+  if (len < 0.01) {
+    // Não está se movendo, mantém última direção
+    return;
+  }
+
+  fx /= len;
+  fy /= len;
+
+  var absX = Math.abs(fx);
+  var absY = Math.abs(fy);
+
+  var texIdx = 0;
   var flip = false;
 
-  // CALCULAR ÂNGULO DIRETO DO VETOR DE MOVIMENTO
-  // atan2 retorna o ângulo em radianos, convertemos para graus
-  var angleRad = Math.atan2(dir.y, dir.x);
-  var angleDeg = angleRad * (180 / Math.PI);
-  
-  // Ajustar para o sistema de coordenadas do PlayCanvas
-  // (0° = direita, 90° = cima, -90° = baixo, 180° = esquerda)
-  var visionAngle = angleDeg - 90; // Subtrai 90° porque o cone base aponta para cima
+  // ✅ SPRITE CORRIGIDO - Baseado na direção EXATA de movimento
+  // frameTextures: [0]=costas (baixo), [1]=frente (cima), [2]=lateral (esquerda/direita)
 
-  // Determinar sprite baseado na direção predominante
   if (absX > absY) {
+    // Movimento HORIZONTAL dominante (direita/esquerda)
     texIdx = 2; // Sprite lateral
-    flip = dir.x < 0;
-    this._currentDirection = dir.x > 0 ? "right" : "left";
+    flip = fx < 0; // Se indo para esquerda, flipar
   } else {
-    if (dir.y > 0) {
-      texIdx = 1; // Sprite frente
-      this._currentDirection = "front";
+    // Movimento VERTICAL dominante (cima/baixo)
+    if (fy > 0) {
+      // Indo para CIMA (Y positivo)
+      texIdx = 1; // Sprite de frente (olhando para cima)
     } else {
-      texIdx = 0; // Sprite costas
-      this._currentDirection = "back";
+      // Indo para BAIXO (Y negativo)
+      texIdx = 0; // Sprite de costas (olhando para baixo)
     }
   }
 
-  // Aplicar textura
-  var asset = this.frameTextures && this.frameTextures[texIdx];
-  var tex = asset
-    ? asset.resource
-      ? asset.resource
-      : asset instanceof pc.Texture
-      ? asset
-      : null
-    : null;
-  
-  if (tex && this._material) {
-    if (this._material.diffuseMap !== tex) {
-      this._material.diffuseMap = tex;
-      this._material.emissiveMap = tex;
-      this._material.update();
-    }
+  // Debug apenas quando sprite muda (não polui console)
+  if (this._currentSprite !== texIdx) {
+    this._currentSprite = texIdx;
+    var dirs = ["BAIXO↓", "CIMA↑", "LATERAL↔"];
+    console.log(
+      "Enemy",
+      this.entity.name,
+      "→",
+      dirs[texIdx],
+      flip ? "(flipped)" : ""
+    );
   }
 
-  // Flip horizontal do sprite
+  // Aplica textura do sprite
+  var asset = this.frameTextures?.[texIdx];
+  var tex = asset?.resource || (asset instanceof pc.Texture ? asset : null);
+
+  if (tex && this._material && this._material.diffuseMap !== tex) {
+    this._material.diffuseMap = tex;
+    this._material.emissiveMap = tex;
+    this._material.update();
+  }
+
+  // Flip horizontal
   var s = this.entity.getLocalScale();
   this.entity.setLocalScale(flip ? -Math.abs(s.x) : Math.abs(s.x), s.y, s.z);
 
-  // ATUALIZAR CONE DE VISÃO - ROTAÇÃO PRECISA
-  // 🔥 CORREÇÃO: quando flip=true, inverte o ângulo para compensar o espelhamento
-  var finalVisionAngle = flip ? -visionAngle : visionAngle;
-  this._vision.setLocalEulerAngles(0, 0, finalVisionAngle);
-  
-  // Offset do cone baseado na direção EXATA
-  var offset = 0.3; // Offset pequeno para ficar próximo do inimigo
-  var offsetX = dir.x * offset;
-  var offsetY = dir.y * offset;
-  
-  this._vision.setLocalPosition(offsetX, offsetY, 0.05);
-  
+  // ✅ ROTAÇÃO DO CONE - AGORA CORRETA!
+  // O cone base aponta para Y+ (90°) no espaço local
+  // atan2(fy, fx) retorna o ângulo do vetor em radianos
+  // Convertemos para graus e ajustamos -90° porque o cone aponta para cima
+  var angleRad = Math.atan2(fy, fx);
+  var angleDeg = angleRad * (180 / Math.PI);
+
+  // ✅ Cone aponta para Y+ (90°), então subtraímos 90° para alinhar
+  var coneRotation = angleDeg - 90;
+
+  this._vision.setLocalEulerAngles(0, 0, coneRotation);
+
+  // Pequeno offset na direção de movimento
+  var offset = 0.3;
+  this._vision.setLocalPosition(fx * offset, fy * offset, 0.05);
+
   // Cor baseada no estado
   if (this._state === "chase") {
-    this._visionMat.diffuse.set(1, 0, 0);
-    this._visionMat.emissive.set(1, 0, 0);
-    this._visionMat.opacity = 0.9;
+    this._visionMat.diffuse.set(1, 0.2, 0);
+    this._visionMat.emissive.set(1, 0.2, 0);
+    this._visionMat.opacity = 0.6;
   } else {
     this._visionMat.diffuse.set(1, 1, 0);
     this._visionMat.emissive.set(1, 1, 0);
-    this._visionMat.opacity = 0.8;
+    this._visionMat.opacity = 0.5;
   }
   this._visionMat.update();
 };
@@ -351,12 +452,11 @@ EnemyAI.prototype.getHitboxAabb = function () {
   };
 };
 
-EnemyAI.prototype.checkCollisionWithPlayer = function () {
+EnemyAI.prototype._checkPlayerCollision = function () {
   const player = this.app.root.findByName("Player");
   if (!player) return;
 
   const eBox = this.getHitboxAabb();
-
   const pPos = player.getPosition();
   const pHalfW = 0.4;
   const pHalfH = 0.5;
@@ -380,16 +480,15 @@ EnemyAI.prototype.checkCollisionWithPlayer = function () {
 
     if (window.PLAYER_HITS == null) window.PLAYER_HITS = 0;
     window.PLAYER_HITS++;
-    console.log(`Player hit by enemy! Hits: ${window.PLAYER_HITS} / 4`);
+    console.log(`💥 Player hit! ${window.PLAYER_HITS} / 4`);
 
     if (window.PLAYER_HITS >= 4) {
-      console.log("GAME OVER - Player defeated!");
-      this.triggerGameOver();
+      this._triggerGameOver();
     }
   }
 };
 
-EnemyAI.prototype.triggerGameOver = function () {
+EnemyAI.prototype._triggerGameOver = function () {
   if (this._gameOverTriggered) return;
   this._gameOverTriggered = true;
 
@@ -398,84 +497,77 @@ EnemyAI.prototype.triggerGameOver = function () {
   const gameOverDiv = document.createElement("div");
   gameOverDiv.id = "gameOverScreen";
   gameOverDiv.innerHTML = `
-    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-      <h1 style="color: red; font-size: 48px; text-align: center; margin-bottom: 30px;">GAME OVER!</h1>
-      <h3 style="color: orange; font-size: 25px; text-align: center; margin-bottom: 30px;">Você foi capturado pelos Towners... e a luz da Candelária permanece. </h3>
-      <div style="display: flex; gap: 20px;">
-        <button id="restartGameBtn" style="padding: 15px 30px; font-size: 18px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
-          Voltar ao Menu Inicial
-        </button>
-      </div>
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: Arial, sans-serif;">
+      <h1 style="color: #ff3333; font-size: 64px; text-align: center; margin-bottom: 20px; text-shadow: 0 0 20px rgba(255,51,51,0.8);">GAME OVER</h1>
+      <h3 style="color: #ff9933; font-size: 24px; text-align: center; margin-bottom: 40px; max-width: 600px;">Você foi capturado pelos Towners... e a luz da Candelária permanece.</h3>
+      <button id="restartGameBtn" style="padding: 20px 50px; font-size: 22px; background: linear-gradient(to bottom, #4CAF50, #388E3C); color: white; border: none; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: all 0.3s;">
+        Voltar ao Menu Inicial
+      </button>
     </div>
   `;
-  
+
   document.body.appendChild(gameOverDiv);
 
-  // Usar event delegation para evitar problemas de timing
   setTimeout(() => {
-    const restartBtn = document.getElementById('restartGameBtn');
-    const menuBtn = document.getElementById('backToMenuBtn');
-    
+    const restartBtn = document.getElementById("restartGameBtn");
     if (restartBtn) {
+      restartBtn.onmouseover = function () {
+        this.style.transform = "scale(1.1)";
+        this.style.boxShadow = "0 6px 20px rgba(76,175,80,0.6)";
+      };
+      restartBtn.onmouseout = function () {
+        this.style.transform = "scale(1)";
+        this.style.boxShadow = "0 4px 15px rgba(0,0,0,0.5)";
+      };
       restartBtn.onclick = () => {
-        console.log("Botão reiniciar clicado!");
-        this.restartGame();
+        gameOverDiv.remove();
+        window.PLAYER_HITS = 0;
+        this._gameOverTriggered = false;
+        this.app.timeScale = 1;
+        window.location.reload();
       };
     }
-    
-    if (menuBtn) {
-      menuBtn.onclick = () => {
-        console.log("Botão menu clicado!");
-        this.backToMainMenu();
-      };
-    }
-    
-    console.log("Event listeners adicionados aos botões");
   }, 100);
 };
 
-EnemyAI.prototype.restartGame = function () {
-  console.log("Reiniciando jogo...");
-  
-  // Remover a tela de Game Over
-  const gameOverDiv = document.getElementById('gameOverScreen');
-  if (gameOverDiv) {
-    gameOverDiv.remove();
+// Debug visual
+EnemyAI.prototype._drawDebug = function () {
+  var enemyPos = this.entity.getPosition();
+  var playerPos = this._player.getPosition();
+  var inSight = this._isPlayerInCone();
+
+  var color = inSight ? new pc.Color(0, 1, 0) : new pc.Color(1, 0, 0);
+  if (this.app.drawLine) {
+    this.app.drawLine(enemyPos, playerPos, color, false);
   }
-  
-  // Resetar variáveis do jogo ANTES de restaurar o timescale
-  window.PLAYER_HITS = 0;
-  this._gameOverTriggered = false;
-  
-  // Restaurar o timescale
-  this.app.timeScale = 1;
-  
-  // Método 1: Recarregar a cena atual (mais confiável)
-  const currentScene = this.app.scenes.current;
-  if (currentScene) {
-    this.app.scenes.loadScene(currentScene.name);
-  } else {
-    // Método 2: Recarregar a página como fallback
-    window.location.reload();
+
+  // Linha de facing (azul)
+  var facingEnd = new pc.Vec3(
+    enemyPos.x + this._facingDirection.x * 2,
+    enemyPos.y + this._facingDirection.y * 2,
+    enemyPos.z
+  );
+  if (this.app.drawLine) {
+    this.app.drawLine(enemyPos, facingEnd, new pc.Color(0, 0.5, 1), false);
+  }
+
+  if (!this._lastDebugLog) this._lastDebugLog = 0;
+  var now = Date.now();
+  if (now - this._lastDebugLog > 2000) {
+    var dx = playerPos.x - enemyPos.x;
+    var dy = playerPos.y - enemyPos.y;
+    var dist = Math.sqrt(dx * dx + dy * dy);
+    console.log("👁️", this.entity.name, {
+      facing:
+        "(" +
+        this._facingDirection.x.toFixed(2) +
+        ", " +
+        this._facingDirection.y.toFixed(2) +
+        ")",
+      distance: dist.toFixed(2),
+      inCone: inSight ? "✅" : "❌",
+      state: this._state,
+    });
+    this._lastDebugLog = now;
   }
 };
-
-EnemyAI.prototype.backToMainMenu = function () {
-  console.log("Voltando para o menu inicial...");
-  
-  // Remover a tela de Game Over
-  const gameOverDiv = document.getElementById('gameOverScreen');
-  if (gameOverDiv) {
-    gameOverDiv.remove();
-  }
-  
-  // Resetar variáveis do jogo
-  window.PLAYER_HITS = 0;
-  this._gameOverTriggered = false;
-  
-  // Restaurar o timescale
-  this.app.timeScale = 1;
-  
-  // Método 1: Carregar cena do menu
-  // Substitua "Main Menu" pelo nome exato da sua cena de menu
-  this.app.scenes.loadScene("Main Menu");}
