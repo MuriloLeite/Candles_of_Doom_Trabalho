@@ -1,5 +1,4 @@
 // enemyAI.js - CONE DE VISÃO COMPLETAMENTE CORRIGIDO
-// O cone agora SEMPRE aponta na direção que o inimigo está olhando
 
 var EnemyAI = pc.createScript("enemyAI");
 
@@ -22,18 +21,15 @@ EnemyAI.prototype.initialize = function () {
   this._targetPos = this._randomPoint();
   this._player = this.app.root.findByName("Player");
 
-  // Direção que o inimigo está OLHANDO (importante para o cone)
-  this._facingDirection = new pc.Vec2(0, 1); // Começa olhando para cima
+  this._facingDirection = new pc.Vec2(0, 1);
   this._moveDirection = new pc.Vec2(0, 0);
 
-  this._currentSprite = 1; // Começa com sprite de frente (olhando para cima)
+  this._currentSprite = 1;
   this._isFlipped = false;
 
-  // Busca texturas do inimigo
   this.frameTextures = window.GAME_TEXTURES?.enemy || [];
 
   console.log("🎨 Enemy textures loaded:", this.frameTextures.length, "frames");
-  console.log("  [0]=costas(baixo), [1]=frente(cima), [2]=lateral");
 
   var mi = this.entity.render?.meshInstances?.[0];
   if (mi) {
@@ -49,12 +45,12 @@ EnemyAI.prototype.initialize = function () {
   this._createVisionCone();
 
   if (!this._visionBaseScale) {
-  this._visionBaseScale = new pc.Vec3(
-    this.sightDistance * 0.85,
-    this.sightDistance * 1.0,
-    1
-  );
-}
+    this._visionBaseScale = new pc.Vec3(
+      this.sightDistance * 0.85,
+      this.sightDistance * 1.0,
+      1
+    );
+  }
 
   this._hitW = this.hitboxSize.x;
   this._hitH = this.hitboxSize.y;
@@ -70,18 +66,7 @@ EnemyAI.prototype._createVisionCone = function () {
   this._vision = new pc.Entity(this.entity.name + "_vision");
 
   try {
-    // ✅ Geometria corrigida: cone aponta para Y+ (cima) no espaço local
-    var vertices = new Float32Array([
-      0,
-      0,
-      0, // Base (origem)
-      -0.42,
-      1,
-      0, // Ponta esquerda
-      0.42,
-      1,
-      0, // Ponta direita
-    ]);
+    var vertices = new Float32Array([0, 0, 0, -0.42, 1, 0, 0.42, 1, 0]);
 
     var indices = new Uint16Array([0, 1, 2]);
     var normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]);
@@ -174,7 +159,6 @@ EnemyAI.prototype.update = function (dt) {
   var speed = this._state === "chase" ? this.speedChase : this.speedWander;
   this._moveTowardTarget(this._targetPos, speed, dt);
 
-  // ✅ ATUALIZA VISUAIS (sprite + cone) DEPOIS DO MOVIMENTO
   this._updateVisuals();
 
   if (this.debugVision && this._player) {
@@ -184,7 +168,6 @@ EnemyAI.prototype.update = function (dt) {
   this._checkPlayerCollision();
 };
 
-// Movimento e atualização de direção COM COLISÃO
 EnemyAI.prototype._moveTowardTarget = function (target, speed, dt) {
   var cur = this.entity.getPosition();
   var dx = target.x - cur.x;
@@ -196,47 +179,36 @@ EnemyAI.prototype._moveTowardTarget = function (target, speed, dt) {
     return;
   }
 
-  // Normaliza direção de movimento
   dx /= dist;
   dy /= dist;
 
-  // ✅ ATUALIZA DIREÇÃO DE FACING IMEDIATAMENTE
   this._facingDirection.set(dx, dy);
   this._moveDirection.set(dx, dy);
 
-  // Calcula nova posição
   var moveX = dx * speed * dt;
   var moveY = dy * speed * dt;
   var newX = cur.x + moveX;
   var newY = cur.y + moveY;
 
-  // ✅ VERIFICA COLISÃO ANTES DE MOVER
   if (!this._collidesWithObjects(newX, newY)) {
     this.entity.translate(moveX, moveY, 0);
   } else {
-    // Tenta mover só em X
     if (!this._collidesWithObjects(newX, cur.y)) {
       this.entity.translate(moveX, 0, 0);
-    }
-    // Tenta mover só em Y
-    else if (!this._collidesWithObjects(cur.x, newY)) {
+    } else if (!this._collidesWithObjects(cur.x, newY)) {
       this.entity.translate(0, moveY, 0);
-    }
-    // Se não conseguir, procura novo alvo (se estiver em wander)
-    else if (this._state === "wander") {
+    } else if (this._state === "wander") {
       this._targetPos = this._randomPoint();
-      this._wanderTimer = 0.1; // Muda rápido
+      this._wanderTimer = 0.1;
     }
   }
 
-  // Clamp bounds
   var p = this.entity.getLocalPosition();
   p.x = pc.math.clamp(p.x, this.boundsMin.x, this.boundsMax.x);
   p.y = pc.math.clamp(p.y, this.boundsMin.y, this.boundsMax.y);
   this.entity.setLocalPosition(p);
 };
 
-// ✅ NOVA: Verifica colisão com objetos decorativos
 EnemyAI.prototype._collidesWithObjects = function (x, y) {
   var enemyHalfW = this._hitW / 2;
   var enemyHalfH = this._hitH / 2;
@@ -248,30 +220,23 @@ EnemyAI.prototype._collidesWithObjects = function (x, y) {
     maxY: y + enemyHalfH,
   };
 
-  // Busca todos os objetos decorativos
   var objects = [];
 
-  // Bancos
   for (var i = 0; i < 4; i++) {
     var banco = this.app.root.findByName("Banco" + i);
     if (banco) objects.push({ entity: banco, halfW: 1.0, halfH: 1.0 });
   }
 
-  // Postes
   for (var j = 0; j < 2; j++) {
     var poste = this.app.root.findByName("Poste" + j);
     if (poste) objects.push({ entity: poste, halfW: 0.6, halfH: 1.1 });
   }
 
-
-
-  // Colisão com tochas também
   var torches = this.app.root.findByTag("torch");
   for (var t = 0; t < torches.length; t++) {
     objects.push({ entity: torches[t], halfW: 0.25, halfH: 0.25 });
   }
 
-  // Verifica colisão AABB com cada objeto
   for (var k = 0; k < objects.length; k++) {
     var obj = objects[k];
     var pos = obj.entity.getPosition();
@@ -283,7 +248,6 @@ EnemyAI.prototype._collidesWithObjects = function (x, y) {
       maxY: pos.y + obj.halfH,
     };
 
-    // Teste AABB
     if (
       !(
         enemyBox.maxX < objBox.minX ||
@@ -292,14 +256,13 @@ EnemyAI.prototype._collidesWithObjects = function (x, y) {
         enemyBox.minY > objBox.maxY
       )
     ) {
-      return true; // Colidiu
+      return true;
     }
   }
 
   return false;
 };
 
-// Detecção de player no cone
 EnemyAI.prototype._isPlayerInCone = function () {
   if (!this._player) return false;
 
@@ -329,7 +292,6 @@ EnemyAI.prototype._isPlayerInCone = function () {
 
   if (angleDeg > this.sightAngleDeg * 0.5) return false;
 
-  // Verificação do triângulo exato
   var angleToRotate = Math.atan2(facingY, facingX) - Math.PI / 2;
   var cos = Math.cos(-angleToRotate);
   var sin = Math.sin(-angleToRotate);
@@ -418,19 +380,25 @@ EnemyAI.prototype._updateVisuals = function () {
   this.entity.setLocalScale(flip ? -Math.abs(s.x) : Math.abs(s.x), s.y, s.z);
 
   // ✅ ROTAÇÃO DO CONE - USA DIREÇÃO REAL DO MOVIMENTO (fx, fy original)
+  // ✅ CORREÇÃO: A rotação do cone deve ser baseada na direção de facing,
+  // mas deve ser ajustada para compensar o flip do sprite (escala X negativa do pai).
+  // Se o sprite está flipado (indo para esquerda), a rotação deve ser invertida.
+  var parentScaleX = this.entity.getLocalScale().x;
+  var flipCorrection = parentScaleX < 0 ? -1 : 1;
+
   var angleRad = Math.atan2(fy, fx);
   var angleDeg = angleRad * (180 / Math.PI);
-  var coneRotation = angleDeg - 90;
+
+  // O cone aponta para Y+ (90 graus) no espaço local.
+  // A rotação deve ser (ângulo da direção - 90) * correção de flip.
+  var coneRotation = (angleDeg - 90) * flipCorrection;
 
   this._vision.setLocalEulerAngles(0, 0, coneRotation);
-  
-  // 🔧 CRÍTICO: Forçar escala absoluta do cone para compensar o flip do pai
-  // Se o pai tem escala X negativa, multiplicamos a escala do cone por -1 em X
-  var parentScaleX = this.entity.getLocalScale().x;
-  var scaleMultiplier = parentScaleX < 0 ? -1 : 1;
-  
+
+  // ✅ CORREÇÃO FINAL: A escala X do cone deve ser sempre positiva.
+  // A rotação já foi corrigida para compensar o flip do pai.
   this._vision.setLocalScale(
-    this._visionBaseScale.x * scaleMultiplier,
+    this._visionBaseScale.x,
     this._visionBaseScale.y,
     this._visionBaseScale.z
   );
@@ -447,8 +415,10 @@ EnemyAI.prototype._updateVisuals = function () {
   } else {
     this._visionMat.diffuse.set(1, 1, 0);
     this._visionMat.emissive.set(1, 1, 0);
-    this._visionMat.opacity = 0.5;
+    this._visionMat.opacity = 0.4; // Corrigido: opacidade base
   }
+
+  // ✅ CORREÇÃO: Atualiza o material para aplicar as mudanças de cor/opacidade
   this._visionMat.update();
 };
 
@@ -532,17 +502,33 @@ EnemyAI.prototype._triggerGameOver = function () {
         this.style.boxShadow = "0 4px 15px rgba(0,0,0,0.5)";
       };
       restartBtn.onclick = () => {
+        console.log("🔄 Voltando ao menu inicial...");
+
         window.PLAYER_HITS = 0;
+        this._gameOverTriggered = false;
+
         if (gameOverDiv && gameOverDiv.parentNode) {
           gameOverDiv.parentNode.removeChild(gameOverDiv);
         }
-        window.location.reload();
+
+        const menu = document.getElementById("menuInicial");
+        if (menu) {
+          menu.style.display = "flex";
+        }
+
+        const btnPause = document.getElementById("btnPause");
+        if (btnPause) {
+          btnPause.style.display = "none";
+        }
+
+        this.app.fire("game:restart");
+        this.app.fire("game:pause");
+        this.app.timeScale = 0;
       };
     }
   }, 100);
 };
 
-// Debug visual
 EnemyAI.prototype._drawDebug = function () {
   var enemyPos = this.entity.getPosition();
   var playerPos = this._player.getPosition();
@@ -553,7 +539,6 @@ EnemyAI.prototype._drawDebug = function () {
     this.app.drawLine(enemyPos, playerPos, color, false);
   }
 
-  // Linha de facing (azul)
   var facingEnd = new pc.Vec3(
     enemyPos.x + this._facingDirection.x * 2,
     enemyPos.y + this._facingDirection.y * 2,

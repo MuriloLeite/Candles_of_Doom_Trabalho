@@ -2,7 +2,7 @@
 window.GAME_TEXTURES = {
   player: [],
   enemy: [],
-  vision: [], 
+  vision: [],
   world: {},
   altar: [],
   torch: [],
@@ -36,11 +36,11 @@ function loadGameAssets(app) {
     ];
 
     const altarAssets = [
-      "./game_assets/world/portal.png", // frame 0
-      "./game_assets/world/portal.png", // frame 1
-      "./game_assets/world/portal.png", // frame 2
-      "./game_assets/world/portal.png", // frame 3
-      "./game_assets/world/portal.png", // frame 4
+      "./game_assets/magic/altar_0.png", // frame 0
+      "./game_assets/magic/altar_1.png", // frame 1
+      "./game_assets/magic/altar_2.png", // frame 2
+      "./game_assets/magic/altar_3.png", // frame 3
+      "./game_assets/magic/altar_4.png", // frame 4
     ];
 
     const worldAssets = [
@@ -50,7 +50,14 @@ function loadGameAssets(app) {
       "./game_assets/world/poste.png",
     ];
 
-    const allAssets = [...playerAssets, ...enemyAssets, ...visionAssets, ...torchAssets, ...altarAssets, ...worldAssets];
+    const allAssets = [
+      ...playerAssets,
+      ...enemyAssets,
+      ...visionAssets,
+      ...torchAssets,
+      ...altarAssets,
+      ...worldAssets,
+    ];
     let toLoad = allAssets.length;
     let loaded = 0;
 
