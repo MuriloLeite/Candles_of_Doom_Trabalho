@@ -58,23 +58,16 @@ Torch.prototype.initialize = function () {
   this._igniteProgress = 0;
   this._extinguishBy = null;
   this._extinguishProgress = 0;
-
   if (this.tag) this.entity.tags.add(this.tag);
-
   this.app.fire("torch:register", this.entity);
-
   this._applySprite();
   this._createProgressBar();
-
-  console.log("🔥 Torch initialized:", this.entity.name, "| Lit:", this._isLit);
 };
 
 Torch.prototype.onDestroy = function () {
   this.app.fire("torch:unregister", this.entity);
-
-  if (this._progressContainer && this._progressContainer.parentNode) {
+  if (this._progressContainer && this._progressContainer.parentNode)
     this._progressContainer.parentNode.removeChild(this._progressContainer);
-  }
 };
 
 Torch.prototype._createProgressBar = function () {
@@ -129,26 +122,21 @@ Torch.prototype._createProgressBar = function () {
   this._progressPercent.textContent = "0%";
 
   this._progressBarBg.appendChild(this._progressBarFill);
-
   var barWrapper = document.createElement("div");
   barWrapper.style.position = "relative";
   barWrapper.appendChild(this._progressBarBg);
   barWrapper.appendChild(this._progressPercent);
-
   this._progressContainer.appendChild(this._progressText);
   this._progressContainer.appendChild(barWrapper);
-
   document.body.appendChild(this._progressContainer);
 };
 
 Torch.prototype._updateProgressBar = function (percent, visible) {
   if (!this._progressContainer) return;
-
   if (visible) {
     this._progressContainer.style.display = "block";
     this._progressBarFill.style.width = percent + "%";
     this._progressPercent.textContent = Math.floor(percent) + "%";
-
     if (percent > 80) {
       this._progressBarBg.style.borderColor = "#FFF700";
       this._progressBarBg.style.boxShadow = "0 0 20px rgba(255, 247, 0, 0.8)";
@@ -209,7 +197,6 @@ Torch.prototype.beginIgnite = function (playerEntity) {
   if (this._isLit) return;
   if (this._igniteBy && this._igniteBy !== playerEntity) return;
   this._igniteBy = playerEntity;
-  console.log("🔥 Player começou a acender tocha:", this.entity.name);
 };
 
 Torch.prototype.cancelIgnite = function (playerEntity) {
@@ -218,7 +205,6 @@ Torch.prototype.cancelIgnite = function (playerEntity) {
     this._igniteProgress = 0;
     this._updateProgressBar(0, false);
     this.app.fire("ui:hint", "");
-    console.log("❌ Ignição cancelada:", this.entity.name);
   }
 };
 
@@ -240,7 +226,6 @@ Torch.prototype.update = function (dt) {
       this._igniteBy.script && this._igniteBy.script.playerController;
     var stillHolding = pcScript && pcScript.isInteractHeld;
     var withinReach = false;
-
     if (this._igniteBy) {
       var a = this._igniteBy.getPosition();
       var b = this.entity.getPosition();
@@ -250,18 +235,15 @@ Torch.prototype.update = function (dt) {
       var r = pcScript ? pcScript.interactionRadius : 1.5;
       withinReach = dsq <= r * r;
     }
-
     if (stillHolding && withinReach) {
       this._igniteProgress += dt;
       var percent = Math.min(
         100,
         (this._igniteProgress / this.igniteTime) * 100
       );
-
       this._updateProgressBar(percent, true);
       this.app.fire("ui:hint", "💡 Segure E para acender");
       this._applyIgniteEffect(percent / 100);
-
       if (this._igniteProgress >= this.igniteTime) {
         this._setLit(true);
         this._igniteBy = null;
@@ -269,8 +251,6 @@ Torch.prototype.update = function (dt) {
         this._updateProgressBar(0, false);
         this.app.fire("ui:hint", "✅ Tocha acesa!");
         this._playVfx(this.vfxOnIgnite);
-        console.log("✅ Tocha acesa com sucesso:", this.entity.name);
-
         var self = this;
         setTimeout(function () {
           self.app.fire("ui:hint", "");
@@ -283,7 +263,6 @@ Torch.prototype.update = function (dt) {
       this.app.fire("ui:hint", "");
     }
   }
-
   if (this._extinguishBy && this._isLit) {
     var a2 = this._extinguishBy.getPosition();
     var b2 = this.entity.getPosition();
@@ -296,7 +275,6 @@ Torch.prototype.update = function (dt) {
         this._extinguishBy = null;
         this._extinguishProgress = 0;
         this._playVfx(this.vfxOnExtinguish);
-        console.log("💨 Tocha apagada pelo inimigo:", this.entity.name);
       }
     } else {
       this._extinguishBy = null;
@@ -307,15 +285,12 @@ Torch.prototype.update = function (dt) {
 
 Torch.prototype._applyIgniteEffect = function (progress) {
   if (!this.entity.render) return;
-
   var mat =
     this.entity.render.material || this.entity.render.meshInstances[0].material;
   if (!mat) return;
-
   var r = 0.6 + 0.4 * progress;
   var g = 0.1 + 0.8 * progress;
   var b = 0.1 + 0.1 * progress;
-
   var color = new pc.Color(r, g, b);
   mat.emissive = color;
   mat.emissiveIntensity = 0.5 + 0.5 * progress;
@@ -326,11 +301,8 @@ Torch.prototype._setLit = function (lit) {
   if (this._isLit === lit) return;
   this._isLit = lit;
   this._applySprite();
-  if (lit) {
-    this.app.fire("torch:lit", this);
-  } else {
-    this.app.fire("torch:unlit", this);
-  }
+  if (lit) this.app.fire("torch:lit", this);
+  else this.app.fire("torch:unlit", this);
 };
 
 Torch.prototype.setLit = function (lit) {

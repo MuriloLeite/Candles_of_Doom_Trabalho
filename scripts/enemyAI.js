@@ -1,4 +1,4 @@
-// enemyAI.js - CONE DE VISÃO COMPLETAMENTE CORRIGIDO
+// Enemy AI: wander, chase, vision cone and collisions
 
 var EnemyAI = pc.createScript("enemyAI");
 
@@ -37,7 +37,7 @@ EnemyAI.prototype.initialize = function () {
     mi.material = this._material;
   }
 
-  console.log("🆕 Creating vision cone for", this.entity.name);
+  console.log("Creating vision cone for", this.entity.name);
 
   var oldVision = this.entity.findByName(this.entity.name + "_vision");
   if (oldVision) oldVision.destroy();
@@ -113,7 +113,7 @@ EnemyAI.prototype._createVisionCone = function () {
       this._vision.render.layers = [pc.LAYERID_WORLD];
     }
 
-    console.log("✅ Vision cone created successfully!");
+    console.log("Vision cone created");
   } catch (error) {
     console.error("❌ Error creating vision cone:", error);
   }
@@ -288,192 +288,292 @@ EnemyAI.prototype._isPlayerInCone = function () {
   }
 
   var dot = facingX * toPlayerX + facingY * toPlayerY;
-  var angleDeg = Math.acos(Math.max(-1, Math.min(1, dot))) * (180 / Math.PI);
+  var EnemyAI = pc.createScript("enemyAI");
 
-  if (angleDeg > this.sightAngleDeg * 0.5) return false;
+  EnemyAI.attributes.add("speedWander", { type: "number", default: 1.2 });
+  EnemyAI.attributes.add("speedChase", { type: "number", default: 2.5 });
+  EnemyAI.attributes.add("sightDistance", { type: "number", default: 6.5 });
+  EnemyAI.attributes.add("sightAngleDeg", { type: "number", default: 85 });
+  EnemyAI.attributes.add("boundsMin", { type: "vec2", default: [-11, -11] });
+  EnemyAI.attributes.add("boundsMax", { type: "vec2", default: [11, 11] });
+  EnemyAI.attributes.add("wanderChangeInterval", {
+    type: "number",
+    default: 2.5,
+  });
+  EnemyAI.attributes.add("hitboxSize", { type: "vec2", default: [0.9, 1.0] });
+  EnemyAI.attributes.add("debugVision", { type: "boolean", default: false });
 
-  var angleToRotate = Math.atan2(facingY, facingX) - Math.PI / 2;
-  var cos = Math.cos(-angleToRotate);
-  var sin = Math.sin(-angleToRotate);
+  EnemyAI.prototype.initialize = function () {
+    this._state = "wander";
+    this._wanderTimer = 0;
+    this._targetPos = this._randomPoint();
+    this._player =
+      this.app.root.findByName("Player") ||
+      this.app.root.findByName("Player_root");
+    this._facingDirection = new pc.Vec2(0, 1);
+    this._moveDirection = new pc.Vec2(0, 0);
+    this._currentSprite = 1;
+    this._isFlipped = false;
+    this.frameTextures = window.GAME_TEXTURES?.enemy || [];
+    var mi = this.entity.render?.meshInstances?.[0];
+    if (mi) {
+      this._material = mi.material || new pc.StandardMaterial();
+      mi.material = this._material;
+    }
+    var oldVision = this.entity.findByName(this.entity.name + "_vision");
+    if (oldVision) oldVision.destroy();
+    this._createVisionCone();
+    if (!this._visionBaseScale)
+      this._visionBaseScale = new pc.Vec3(
+        this.sightDistance * 0.85,
+        this.sightDistance * 1.0,
+        1
+      );
+    this._hitW = this.hitboxSize.x;
+    this._hitH = this.hitboxSize.y;
+    this._lastHitTime = 0;
+    this._hitCooldown = 0.8;
+    if (window.PLAYER_HITS === undefined) window.PLAYER_HITS = 0;
+  };
 
-  var localX = dx * cos - dy * sin;
-  var localY = dx * sin + dy * cos;
+  EnemyAI.prototype._createVisionCone = function () {
+    try {
+      var vertices = new Float32Array([0, 0, 0, -0.42, 1, 0, 0.42, 1, 0]);
+      var indices = new Uint16Array([0, 1, 2]);
+      var normals = new Float32Array([0, 0, 1, 0, 0, 1, 0, 0, 1]);
+      var uvs = new Float32Array([0.5, 0, 0, 1, 1, 1]);
+      var mesh = new pc.Mesh(this.app.graphicsDevice);
+      mesh.setPositions(vertices);
+      mesh.setNormals(normals);
+      mesh.setUvs(0, uvs);
+      mesh.setIndices(indices);
+      mesh.update(pc.PRIMITIVE_TRIANGLES);
+      var material = new pc.StandardMaterial();
+      material.diffuse.set(1, 1, 0);
+      material.emissive.set(1, 1, 0);
+      material.emissiveIntensity = 0.7;
+      material.opacity = 0.4;
+      material.blendType = pc.BLEND_NORMAL;
+      material.depthWrite = false;
+      material.cull = pc.CULLFACE_NONE;
+      material.update();
+      var meshInstance = new pc.MeshInstance(mesh, material);
+      this._vision = new pc.Entity(this.entity.name + "_vision");
+      this._vision.addComponent("render", {
+        type: "asset",
+        meshInstances: [meshInstance],
+      });
+      this._vision.setLocalScale(
+        this.sightDistance * 0.85,
+        this.sightDistance * 1.0,
+        1
+      );
+      this._visionMat = material;
+      this.entity.addChild(this._vision);
+      this._vision.setLocalPosition(0, 0, 0.05);
+      if (window.GAME_LAYERS?.VISION)
+        this._vision.render.layers = [window.GAME_LAYERS.VISION];
+      else this._vision.render.layers = [pc.LAYERID_WORLD];
+    } catch (e) {
+      console.error("Error creating vision cone:", e);
+    }
+  };
 
-  if (localY < 0) return false;
-  if (localY > this.sightDistance) return false;
+  EnemyAI.prototype._randomPoint = function () {
+    var min = this.boundsMin,
+      max = this.boundsMax;
+    var margin = 2;
+    var x = min.x + margin + Math.random() * (max.x - min.x - margin * 2);
+    var y = min.y + margin + Math.random() * (max.y - min.y - margin * 2);
+    return new pc.Vec3(x, y, 0);
+  };
 
-  var halfAngleRad = this.sightAngleDeg * 0.5 * (Math.PI / 180);
-  var maxWidthAtBase = this.sightDistance * Math.tan(halfAngleRad);
-  var maxWidthAtDepth = (localY / this.sightDistance) * maxWidthAtBase;
+  EnemyAI.prototype.update = function (dt) {
+    if (!this.entity.parent) return;
+    this._hitCooldown = Math.max(0, this._hitCooldown - dt);
+    if (this._state === "wander") {
+      this._moveTowardTarget(this._targetPos, this.speedWander, dt);
+      if (this.entity.getPosition().distance(this._targetPos) < 0.4)
+        this._targetPos = this._randomPoint();
+      if (this._isPlayerInCone()) this._state = "chase";
+    } else if (this._state === "chase") {
+      if (!this._player)
+        this._player =
+          this.app.root.findByName("Player_root") ||
+          this.app.root.findByName("Player");
+      if (this._player) {
+        var ppos = this._player.getPosition();
+        this._moveTowardTarget(ppos, this.speedChase, dt);
+        if (!this._isPlayerInCone()) this._state = "wander";
+        this._checkPlayerCollision();
+      }
+    }
+    this._updateVisuals();
+  };
 
-  if (Math.abs(localX) > maxWidthAtDepth) return false;
+  EnemyAI.prototype._moveTowardTarget = function (target, speed, dt) {
+    var pos = this.entity.getPosition();
+    var dir = new pc.Vec3(target.x - pos.x, target.y - pos.y, 0);
+    var len = dir.length();
+    if (len > 0.001) dir.scale(1 / len);
+    var move = dir.clone().scale(speed * dt);
+    this.entity.translate(move);
+  };
 
-  return true;
-};
+  EnemyAI.prototype._isPlayerInCone = function () {
+    var p =
+      this._player ||
+      this.app.root.findByName("Player_root") ||
+      this.app.root.findByName("Player");
+    if (!p) return false;
+    var dir = p.getPosition().clone().sub(this.entity.getPosition());
+    var d = dir.length();
+    if (d > this.sightDistance) return false;
+    var angle = Math.atan2(dir.y, dir.x);
+    var facingX = this._facingDirection.x || 0;
+    var facingY = this._facingDirection.y || 1;
+    var dot = Math.cos(angle) * facingX + Math.sin(angle) * facingY;
+    var angleDeg = Math.acos(Math.max(-1, Math.min(1, dot))) * (180 / Math.PI);
+    if (angleDeg > this.sightAngleDeg * 0.5) return false;
+    var dx = dir.x,
+      dy = dir.y;
+    var angleToRotate = Math.atan2(facingY, facingX) - Math.PI / 2;
+    var cos = Math.cos(-angleToRotate);
+    var sin = Math.sin(-angleToRotate);
+    var localX = dx * cos - dy * sin;
+    var localY = dx * sin + dy * cos;
+    if (localY < 0) return false;
+    if (localY > this.sightDistance) return false;
+    var halfAngleRad = this.sightAngleDeg * 0.5 * (Math.PI / 180);
+    var maxWidthAtBase = this.sightDistance * Math.tan(halfAngleRad);
+    var maxWidthAtDepth = (localY / this.sightDistance) * maxWidthAtBase;
+    if (Math.abs(localX) > maxWidthAtDepth) return false;
+    return true;
+  };
 
-// ✅ ATUALIZAÇÃO VISUAL CORRIGIDA - Sincroniza sprite E cone
-EnemyAI.prototype._updateVisuals = function () {
-  if (!this._vision || !this._visionMat) return;
-
-  var fx = this._facingDirection.x;
-  var fy = this._facingDirection.y;
-
-  // Normaliza
-  var len = Math.sqrt(fx * fx + fy * fy);
-  if (len < 0.01) {
-    // Não está se movendo, mantém última direção
-    return;
-  }
-
-  fx /= len;
-  fy /= len;
-
-  var absX = Math.abs(fx);
-  var absY = Math.abs(fy);
-
-  var texIdx = 0;
-  var flip = false;
-
-  // ✅ SPRITE CORRIGIDO - Baseado na direção EXATA de movimento
-  // frameTextures: [0]=costas (baixo), [1]=frente (cima), [2]=lateral (esquerda/direita)
-
-  if (absX > absY) {
-    // Movimento HORIZONTAL dominante (direita/esquerda)
-    texIdx = 2; // Sprite lateral
-    flip = fx < 0; // Se indo para esquerda, flipar
-  } else {
-    // Movimento VERTICAL dominante (cima/baixo)
-    if (fy > 0) {
-      // Indo para CIMA (Y positivo)
-      texIdx = 1; // Sprite de frente (olhando para cima)
+  EnemyAI.prototype._updateVisuals = function () {
+    if (!this._vision || !this._visionMat) return;
+    var fx = this._facingDirection.x;
+    var fy = this._facingDirection.y;
+    var len = Math.sqrt(fx * fx + fy * fy);
+    if (len < 0.01) return;
+    fx /= len;
+    fy /= len;
+    var absX = Math.abs(fx);
+    var absY = Math.abs(fy);
+    var texIdx = 0;
+    var flip = false;
+    if (absX > absY) {
+      texIdx = 2;
+      flip = fx < 0;
     } else {
-      // Indo para BAIXO (Y negativo)
-      texIdx = 0; // Sprite de costas (olhando para baixo)
+      if (fy > 0) texIdx = 1;
+      else texIdx = 0;
     }
-  }
-
-  // Debug apenas quando sprite muda (não polui console)
-  if (this._currentSprite !== texIdx) {
-    this._currentSprite = texIdx;
-    var dirs = ["BAIXO↓", "CIMA↑", "LATERAL↔"];
-    console.log(
-      "Enemy",
-      this.entity.name,
-      "→",
-      dirs[texIdx],
-      flip ? "(flipped)" : ""
+    if (this._currentSprite !== texIdx) this._currentSprite = texIdx;
+    var asset = this.frameTextures?.[texIdx];
+    var tex = asset?.resource || (asset instanceof pc.Texture ? asset : null);
+    if (tex && this._material && this._material.diffuseMap !== tex) {
+      this._material.diffuseMap = tex;
+      this._material.emissiveMap = tex;
+      this._material.update();
+    }
+    var s = this.entity.getLocalScale();
+    this.entity.setLocalScale(flip ? -Math.abs(s.x) : Math.abs(s.x), s.y, s.z);
+    var parentScaleX = this.entity.getLocalScale().x;
+    var flipCorrection = parentScaleX < 0 ? -1 : 1;
+    var angleRad = Math.atan2(fy, fx);
+    var angleDeg = angleRad * (180 / Math.PI);
+    var coneRotation = (angleDeg - 90) * flipCorrection;
+    this._vision.setLocalEulerAngles(0, 0, coneRotation);
+    this._vision.setLocalScale(
+      this._visionBaseScale.x,
+      this._visionBaseScale.y,
+      this._visionBaseScale.z
     );
-  }
-
-  // Aplica textura do sprite
-  var asset = this.frameTextures?.[texIdx];
-  var tex = asset?.resource || (asset instanceof pc.Texture ? asset : null);
-
-  if (tex && this._material && this._material.diffuseMap !== tex) {
-    this._material.diffuseMap = tex;
-    this._material.emissiveMap = tex;
-    this._material.update();
-  }
-
-  // Flip horizontal DO SPRITE
-  var s = this.entity.getLocalScale();
-  this.entity.setLocalScale(flip ? -Math.abs(s.x) : Math.abs(s.x), s.y, s.z);
-
-  // ✅ ROTAÇÃO DO CONE - USA DIREÇÃO REAL DO MOVIMENTO (fx, fy original)
-  // ✅ CORREÇÃO: A rotação do cone deve ser baseada na direção de facing,
-  // mas deve ser ajustada para compensar o flip do sprite (escala X negativa do pai).
-  // Se o sprite está flipado (indo para esquerda), a rotação deve ser invertida.
-  var parentScaleX = this.entity.getLocalScale().x;
-  var flipCorrection = parentScaleX < 0 ? -1 : 1;
-
-  var angleRad = Math.atan2(fy, fx);
-  var angleDeg = angleRad * (180 / Math.PI);
-
-  // O cone aponta para Y+ (90 graus) no espaço local.
-  // A rotação deve ser (ângulo da direção - 90) * correção de flip.
-  var coneRotation = (angleDeg - 90) * flipCorrection;
-
-  this._vision.setLocalEulerAngles(0, 0, coneRotation);
-
-  // ✅ CORREÇÃO FINAL: A escala X do cone deve ser sempre positiva.
-  // A rotação já foi corrigida para compensar o flip do pai.
-  this._vision.setLocalScale(
-    this._visionBaseScale.x,
-    this._visionBaseScale.y,
-    this._visionBaseScale.z
-  );
-
-  // Offset na direção de movimento (usando fx, fy originais)
-  var offset = 0.3;
-  this._vision.setLocalPosition(fx * offset, fy * offset, 0.05);
-
-  // Cor baseada no estado
-  if (this._state === "chase") {
-    this._visionMat.diffuse.set(1, 0.2, 0);
-    this._visionMat.emissive.set(1, 0.2, 0);
-    this._visionMat.opacity = 0.6;
-  } else {
-    this._visionMat.diffuse.set(1, 1, 0);
-    this._visionMat.emissive.set(1, 1, 0);
-    this._visionMat.opacity = 0.4; // Corrigido: opacidade base
-  }
-
-  // ✅ CORREÇÃO: Atualiza o material para aplicar as mudanças de cor/opacidade
-  this._visionMat.update();
-};
-
-EnemyAI.prototype.getHitboxAabb = function () {
-  var pos = this.entity.getPosition();
-  var halfW = this._hitW / 2;
-  var halfH = this._hitH / 2;
-  return {
-    minX: pos.x - halfW,
-    maxX: pos.x + halfW,
-    minY: pos.y - halfH,
-    maxY: pos.y + halfH,
-  };
-};
-
-EnemyAI.prototype._checkPlayerCollision = function () {
-  const player = this.app.root.findByName("Player");
-  if (!player) return;
-
-  const eBox = this.getHitboxAabb();
-  const pPos = player.getPosition();
-  const pHalfW = 0.4;
-  const pHalfH = 0.5;
-  const pBox = {
-    minX: pPos.x - pHalfW,
-    maxX: pPos.x + pHalfW,
-    minY: pPos.y - pHalfH,
-    maxY: pPos.y + pHalfH,
-  };
-
-  const isColliding = !(
-    eBox.maxX < pBox.minX ||
-    eBox.minX > pBox.maxX ||
-    eBox.maxY < pBox.minY ||
-    eBox.minY > pBox.maxY
-  );
-
-  const now = Date.now();
-  if (isColliding && now - this._lastHitTime > this._hitCooldown * 1000) {
-    this._lastHitTime = now;
-
-    if (window.PLAYER_HITS == null) window.PLAYER_HITS = 0;
-    window.PLAYER_HITS++;
-    console.log(`💥 Player hit! ${window.PLAYER_HITS} / 4`);
-
-    if (window.PLAYER_HITS >= 4) {
-      this._triggerGameOver();
+    var offset = 0.3;
+    this._vision.setLocalPosition(fx * offset, fy * offset, 0.05);
+    if (this._state === "chase") {
+      this._visionMat.diffuse.set(1, 0.2, 0);
+      this._visionMat.emissive.set(1, 0.2, 0);
+      this._visionMat.opacity = 0.6;
+    } else {
+      this._visionMat.diffuse.set(1, 1, 0);
+      this._visionMat.emissive.set(1, 1, 0);
+      this._visionMat.opacity = 0.4;
     }
-  }
-};
+    this._visionMat.update();
+  };
 
-EnemyAI.prototype._triggerGameOver = function () {
-  if (this._gameOverTriggered) return;
-  this._gameOverTriggered = true;
+  EnemyAI.prototype.getHitboxAabb = function () {
+    var pos = this.entity.getPosition();
+    var halfW = this._hitW / 2;
+    var halfH = this._hitH / 2;
+    return {
+      minX: pos.x - halfW,
+      maxX: pos.x + halfW,
+      minY: pos.y - halfH,
+      maxY: pos.y + halfH,
+    };
+  };
 
+  EnemyAI.prototype._checkPlayerCollision = function () {
+    const player =
+      this.app.root.findByName("Player") ||
+      this.app.root.findByName("Player_root");
+    if (!player) return;
+    const eBox = this.getHitboxAabb();
+    const pPos = player.getPosition();
+    const pHalfW = 0.4;
+    const pHalfH = 0.5;
+    const pBox = {
+      minX: pPos.x - pHalfW,
+      maxX: pPos.x + pHalfW,
+      minY: pPos.y - pHalfH,
+      maxY: pPos.y + pHalfH,
+    };
+    const isColliding = !(
+      eBox.maxX < pBox.minX ||
+      eBox.minX > pBox.maxX ||
+      eBox.maxY < pBox.minY ||
+      eBox.minY > pBox.maxY
+    );
+    const now = Date.now();
+    if (isColliding && now - this._lastHitTime > this._hitCooldown * 1000) {
+      this._lastHitTime = now;
+      if (window.PLAYER_HITS == null) window.PLAYER_HITS = 0;
+      window.PLAYER_HITS++;
+      if (window.PLAYER_HITS >= 4) this._triggerGameOver();
+    }
+  };
+
+  EnemyAI.prototype._triggerGameOver = function () {
+    if (this._gameOverTriggered) return;
+    this._gameOverTriggered = true;
+    this.app.timeScale = 0;
+    const gameOverDiv = document.createElement("div");
+    gameOverDiv.id = "gameOverScreen";
+    gameOverDiv.innerHTML =
+      '<div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; font-family: Arial, sans-serif;"><h1 style="color: #ff3333; font-size: 64px; text-align: center; margin-bottom: 20px; text-shadow: 0 0 20px rgba(255,51,51,0.8);">GAME OVER</h1><button id="restartButton" style="padding: 12px 24px; font-size: 20px;">Restart</button></div>';
+    document.body.appendChild(gameOverDiv);
+    var btn = document.getElementById("restartButton");
+    if (btn)
+      btn.addEventListener("click", function () {
+        location.reload();
+      });
+  };
+
+  EnemyAI.prototype._drawDebug = function () {
+    if (!this.app.debug) return;
+    var pos = this.entity.getPosition();
+    this.app.drawLine(
+      pos.x,
+      pos.y,
+      pos.x + 0.5,
+      pos.y + 0.5,
+      new pc.Color(1, 0, 0)
+    );
+  };
   this.app.timeScale = 0;
 
   const gameOverDiv = document.createElement("div");

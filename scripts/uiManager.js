@@ -1,12 +1,12 @@
-
+// UI Manager: panel and HUD control
 var UiManager = pc.createScript("uiManager");
 
 // Panels
-  UiManager.attributes.add("menuPanel", { type: "entity", title: "Menu Panel" });
-  UiManager.attributes.add("hudPanel", { type: "entity", title: "HUD Panel" });
-  UiManager.attributes.add("pausePanel", {
-    type: "entity",
-    title: "Pause Panel",
+UiManager.attributes.add("menuPanel", { type: "entity", title: "Menu Panel" });
+UiManager.attributes.add("hudPanel", { type: "entity", title: "HUD Panel" });
+UiManager.attributes.add("pausePanel", {
+  type: "entity",
+  title: "Pause Panel",
 });
 
 // HUD elements
@@ -90,12 +90,12 @@ UiManager.prototype.initialize = function () {
   this._bindButton(this.btnRestart, this._onRestart, this);
   this._bindButton(this.btnReturnToMain, this._onReturnToMain, this);
 
-  // Listen to HUD and game state events
+  // eventos HUD / estado
   this.app.on("hud:update", this._onHudUpdate, this);
   this.app.on("game:state", this._onGameState, this);
   this.app.on("ui:hint", this._onHint, this);
 
-  // Keyboard pause toggle
+  // teclado: toggle pause
   this.app.keyboard.on("keydown", this._onKeyDown, this);
 
   this._showOnly(this.menuPanel);
@@ -183,7 +183,7 @@ UiManager.prototype._onStart = function () {
   this._state = "playing";
   this._showOnly(this.hudPanel);
   this.app.fire("game:reset");
-  this.app.fire("game:resume"); 
+  this.app.fire("game:resume");
 };
 
 UiManager.prototype._onExit = function () {
@@ -222,14 +222,9 @@ UiManager.prototype._onReturnToMain = function () {
 };
 
 UiManager.prototype._showOnly = function (panel) {
-  var panels = [
-    this.menuPanel,
-    this.hudPanel,
-    this.pausePanel,
-  ];
+  var panels = [this.menuPanel, this.hudPanel, this.pausePanel];
   for (var i = 0; i < panels.length; i++) {
     if (!panels[i]) continue;
     panels[i].enabled = panels[i] === panel;
   }
 };
-

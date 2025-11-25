@@ -1,10 +1,4 @@
-/*
-  Celestial Candelarium - altar.js
-  - Shows how many torches are lit (0-4)
-  - Sprite frame updates: 0..4 corresponds to lit count
-  - Player pode interagir quando todas as tochas estão acesas
-  - Emits victory when player interacts
-*/
+// Altar: mostra quantas tochas estão acesas e dispara vitória
 
 var Altar = pc.createScript("altar");
 
@@ -32,35 +26,42 @@ Altar.attributes.add("interactionRadius", {
 
 Altar.prototype.initialize = function () {
   this._lit = 0;
-  this._total = 4; // default, GameManager may override via event
+  this._total = 4;
   this._winPending = false;
   this._canInteract = false;
   this._player = null;
   this._interacting = false;
   this._wasShowingHint = false;
 
-  console.log("Altar initializing...");
+  console.log("🕯 Altar initializing...");
 
-  // Fallback 1: Buscar da propriedade customizada da entidade
-  var hasValidTextures =
-    this.frameTextures &&
-    this.frameTextures.length > 0 &&
-    this.frameTextures[0] !== null;
-  if (!hasValidTextures && this.entity._altarTextures) {
-    this.frameTextures = this.entity._altarTextures;
-    console.log(
-      "Altar using entity._altarTextures:",
-      this.frameTextures.length
-    );
-    hasValidTextures = true;
-  }
+  // ✅ FORÇA BUSCAR AS TEXTURAS DO GLOBAL
+  var globalTextures = window.GAME_TEXTURES?.altar;
+  var entityTextures = this.entity._altarTextures;
 
-  // Fallback 2: se ainda não tem, buscar do global
-  if (!hasValidTextures) {
-    if (window.GAME_TEXTURES && window.GAME_TEXTURES.altar) {
-      this.frameTextures = window.GAME_TEXTURES.altar;
-      console.log("Altar using global textures:", this.frameTextures.length);
+  console.log("🔍 Verificando texturas:");
+  console.log("  - window.GAME_TEXTURES.altar:", globalTextures);
+  console.log("  - entity._altarTextures:", entityTextures);
+
+  // Tenta global primeiro
+  if (globalTextures && globalTextures.length > 0) {
+    // ✅ COPIA o array (não referência)
+    this.frameTextures = [];
+    for (var i = 0; i < globalTextures.length; i++) {
+      this.frameTextures[i] = globalTextures[i];
     }
+    console.log("✅ Copiou", this.frameTextures.length, "texturas do global");
+  }
+  // Tenta entity
+  else if (entityTextures && entityTextures.length > 0) {
+    this.frameTextures = [];
+    for (var j = 0; j < entityTextures.length; j++) {
+      this.frameTextures[j] = entityTextures[j];
+    }
+    console.log("✅ Copiou", this.frameTextures.length, "texturas da entidade");
+  } else {
+    console.error("❌ NENHUMA TEXTURA ENCONTRADA!");
+    this.frameTextures = [];
   }
 
   this.app.on("altar:update", this._onUpdate, this);
@@ -70,8 +71,8 @@ Altar.prototype.initialize = function () {
   this._applyFrame();
 
   console.log(
-    "Altar initialized with",
-    this.frameTextures ? this.frameTextures.length : 0,
+    "✅ Altar initialized with",
+    this.frameTextures.length,
     "textures"
   );
 };
@@ -86,7 +87,7 @@ Altar.prototype._onUpdate = function (lit, total) {
   this._total = total | 0;
   this._applyFrame();
 
-  // Verifica se todas as tochas estão acesas - HABILITA INTERAÇÃO
+  // habilita interação quando todas as tochas estiverem acesas
   this._canInteract = this._total > 0 && this._lit >= this._total;
 
   if (this._canInteract) {
@@ -121,7 +122,7 @@ Altar.prototype._applyFrame = function () {
   }
 };
 
-// NOVO: Loop de update para detectar interação
+// update: detecta interação do player
 Altar.prototype.update = function (dt) {
   if (!this._canInteract) return;
 
@@ -138,16 +139,15 @@ Altar.prototype.update = function (dt) {
   var dy = playerPos.y - altarPos.y;
   var dist = Math.sqrt(dx * dx + dy * dy);
 
-  // Se player está perto o suficiente
+  // player próximo: mostra hint e permite ação
   if (dist <= this.interactionRadius) {
-    // Mostra hint
     this.app.fire(
       "ui:hint",
       "✨ Pressione E no altar para completar o ritual!"
     );
     this._wasShowingHint = true;
 
-    // Verifica se apertou E
+    // verifica botão E
     if (this.app.keyboard && this.app.keyboard.isPressed(pc.KEY_E)) {
       if (!this._interacting) {
         this._interacting = true;
@@ -158,7 +158,7 @@ Altar.prototype.update = function (dt) {
       this._interacting = false;
     }
   } else {
-    // Limpa hint se estava mostrando
+    // limpa hint
     if (this._wasShowingHint) {
       this.app.fire("ui:hint", "");
       this._wasShowingHint = false;
@@ -170,10 +170,10 @@ Altar.prototype._triggerWin = function () {
   if (this._winPending) return;
   this._winPending = true;
 
-  // Pausa o jogo
+  // pausa o jogo
   this.app.timeScale = 0;
 
-  // Cria tela de vitória
+  // cria tela de vitória (DOM)
   this._createVictoryScreen();
 
   // Dispara evento de vitória para o GameManager
@@ -183,7 +183,7 @@ Altar.prototype._triggerWin = function () {
 Altar.prototype._createVictoryScreen = function () {
   var self = this;
 
-  // Remove tela antiga se existir
+  // remove tela antiga
   var oldScreen = document.getElementById("victoryScreen");
   if (oldScreen && oldScreen.parentNode) {
     oldScreen.parentNode.removeChild(oldScreen);
@@ -205,7 +205,7 @@ Altar.prototype._createVictoryScreen = function () {
   victoryDiv.style.alignItems = "center";
   victoryDiv.style.fontFamily = "Arial, sans-serif";
 
-  // Título
+  // título
   var title = document.createElement("h1");
   title.textContent = "🎉 VITÓRIA! 🎉";
   title.style.color = "#FFD700";
@@ -214,7 +214,7 @@ Altar.prototype._createVictoryScreen = function () {
   title.style.textShadow =
     "4px 4px 8px rgba(0,0,0,0.8), 0 0 20px rgba(255,215,0,0.5)";
 
-  // Mensagem
+  // mensagem
   var message = document.createElement("p");
   message.textContent = "Você acendeu todas as tochas e completou o ritual!";
   message.style.color = "#FFFFFF";
@@ -224,7 +224,7 @@ Altar.prototype._createVictoryScreen = function () {
   message.style.textAlign = "center";
   message.style.maxWidth = "600px";
 
-  // Submensagem
+  // submensagem
   var subMessage = document.createElement("p");
   subMessage.textContent = "As luzes foram dissipadas pelas Trevas!";
   subMessage.style.color = "#FFD700";
@@ -233,12 +233,12 @@ Altar.prototype._createVictoryScreen = function () {
   subMessage.style.fontStyle = "italic";
   subMessage.style.textShadow = "2px 2px 4px rgba(0,0,0,0.8)";
 
-  // Container de botões
+  // botões
   var buttonContainer = document.createElement("div");
   buttonContainer.style.display = "flex";
   buttonContainer.style.gap = "20px";
 
-  // Botão Jogar Novamente
+  // botão reiniciar
   var btnRestart = document.createElement("button");
   btnRestart.textContent = "Jogar Novamente";
   btnRestart.style.padding = "15px 40px";
@@ -273,7 +273,7 @@ Altar.prototype._createVictoryScreen = function () {
     self._interacting = false;
   };
 
-  // Botão Menu
+  // botão menu
   var btnMenu = document.createElement("button");
   btnMenu.textContent = "Menu Principal";
   btnMenu.style.padding = "15px 40px";
@@ -314,7 +314,7 @@ Altar.prototype._createVictoryScreen = function () {
     self._interacting = false;
   };
 
-  // Monta a estrutura
+  // montar DOM
   buttonContainer.appendChild(btnRestart);
   buttonContainer.appendChild(btnMenu);
   victoryDiv.appendChild(title);
@@ -327,54 +327,84 @@ Altar.prototype._createVictoryScreen = function () {
 
 Altar.prototype._applyFrameTexture = function (frameIndex) {
   if (!this.entity.render) return;
-  var asset =
-    this.frameTextures &&
-    this.frameTextures[Math.min(frameIndex | 0, this.frameTextures.length - 1)];
-  var tex = asset && asset.resource ? asset.resource : asset;
 
-  // Aplicar ao meshInstance diretamente
+  frameIndex = Math.max(
+    0,
+    Math.min(frameIndex | 0, this.frameTextures.length - 1)
+  );
+
+  // ✅ DEBUG
+  console.log("🔍 DEBUG _applyFrameTexture:");
+  console.log("  - frameIndex:", frameIndex);
+  console.log("  - this.frameTextures:", this.frameTextures);
+  console.log(
+    "  - this.frameTextures.length:",
+    this.frameTextures ? this.frameTextures.length : "NULL"
+  );
+
+  var asset = this.frameTextures && this.frameTextures[frameIndex];
+
+  console.log("  - asset:", asset);
+
+  if (!asset) {
+    console.warn("⚠ Frame", frameIndex, "não tem textura");
+    return;
+  }
+
+  var tex = asset.resource || asset;
+
+  console.log("  - tex:", tex);
+  console.log("  - tex instanceof pc.Texture:", tex instanceof pc.Texture);
+
   var mat = this.entity.render.meshInstances[0].material;
   if (!mat) {
     mat = new pc.StandardMaterial();
     this.entity.render.meshInstances[0].material = mat;
   }
 
-  if (tex) {
+  if (tex && tex instanceof pc.Texture) {
     mat.diffuseMap = tex;
     mat.emissiveMap = tex;
     mat.emissive = new pc.Color(1, 1, 1);
+    mat.emissiveIntensity = 0.8 + frameIndex * 0.2;
     mat.opacityMap = tex;
     mat.blendType = pc.BLEND_PREMULTIPLIED;
     mat.useLighting = false;
+    mat.cull = pc.CULLFACE_NONE;
+
+    console.log(
+      "✅ Frame",
+      frameIndex,
+      "aplicado | Intensity:",
+      mat.emissiveIntensity
+    );
   } else {
-    // Fallback: use color based on frame
+    console.warn("⚠ Textura não é válida, usando cor");
     var colors = [
-      new pc.Color(0.2, 0.2, 0.2), // 0: dark
-      new pc.Color(0.4, 0.2, 0.2), // 1: red
-      new pc.Color(0.6, 0.4, 0.2), // 2: orange
-      new pc.Color(0.8, 0.6, 0.2), // 3: yellow
-      new pc.Color(1, 1, 0.5), // 4: bright yellow
+      new pc.Color(0.2, 0.2, 0.2),
+      new pc.Color(0.4, 0.2, 0.2),
+      new pc.Color(0.6, 0.4, 0.2),
+      new pc.Color(0.8, 0.6, 0.2),
+      new pc.Color(1, 1, 0.5),
     ];
     var color = colors[frameIndex] || colors[0];
     mat.diffuse = color;
     mat.emissive = color;
+    mat.emissiveIntensity = 1.0;
     mat.useLighting = false;
     mat.diffuseMap = null;
     mat.emissiveMap = null;
     mat.opacityMap = null;
   }
+
   mat.update();
 };
 
-// No script que controla a vitória (ex: collectible.js ou goal.js)
 function triggerVictory() {
-  // 🔥 MARCAR QUE JOGADOR GANHOU - ISSO IMPEDE GAME OVER
   window.GAME_WON = true;
 
-  // Parar o jogo
   this.app.timeScale = 0;
 
-  // Remover qualquer tela de Game Over que possa estar ativa
   const gameOverScreen = document.getElementById("gameOverScreen");
   if (gameOverScreen) {
     gameOverScreen.remove();

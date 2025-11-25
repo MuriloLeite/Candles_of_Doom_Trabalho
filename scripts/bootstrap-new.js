@@ -1,13 +1,7 @@
-// Bootstrap v7 - MÚSICA CORRIGIDA + Sistema de layers e menu
 (function () {
   "use strict";
 
-  console.log("Bootstrap v7 - Música e cone de visão corrigidos");
-
-  // MENU CONTROLLER
   function setupMenuController(app) {
-    console.log("Setting up menu controller...");
-
     var btnStart = document.getElementById("btnStart");
     var btnQuit = document.getElementById("btnQuit");
     var btnMute = document.getElementById("btnMute");
@@ -15,16 +9,6 @@
     var menu = document.getElementById("menuInicial");
     var pauseOverlay = document.getElementById("pauseOverlay");
 
-    console.log("Elementos encontrados:", {
-      btnStart: !!btnStart,
-      btnQuit: !!btnQuit,
-      btnMute: !!btnMute,
-      btnPause: !!btnPause,
-      menu: !!menu,
-      pauseOverlay: !!pauseOverlay,
-    });
-
-    // SISTEMA DE MÚSICA
     var bgMusic = new Audio();
     bgMusic.loop = true;
     bgMusic.volume = 0.3;
@@ -32,105 +16,49 @@
 
     var musicEnabled = localStorage.getItem("ash:music") !== "false";
     var isGamePaused = false;
-    var wasMusicPlayingBeforePause = false; // ✅ NOVO: Track se música estava tocando
+    var wasMusicPlayingBeforePause = false;
 
     function playMusic() {
-      if (musicEnabled) {
-        bgMusic
-          .play()
-          .then(function () {
-            console.log("🎵 Música iniciada");
-          })
-          .catch(function (err) {
-            console.warn("❌ Não foi possível tocar música:", err);
-          });
-      }
+      if (musicEnabled)
+        bgMusic.play().catch(function (err) {
+          console.warn("Não foi possível tocar música:", err);
+        });
     }
 
     function stopMusic() {
       bgMusic.pause();
-      console.log("⏸️ Música pausada");
     }
 
     function toggleMusic() {
       musicEnabled = !musicEnabled;
       localStorage.setItem("ash:music", musicEnabled.toString());
-
-      if (musicEnabled) {
-        playMusic();
-      } else {
-        stopMusic();
-      }
-
-      updateMusicButton();
-      console.log("🎵 Música:", musicEnabled ? "ON" : "OFF");
-    }
-
-    function updateMusicButton() {
-      if (btnMute) {
+      if (musicEnabled) playMusic();
+      else stopMusic();
+      if (btnMute)
         btnMute.textContent = musicEnabled ? "🔊 Som: ON" : "🔇 Som: OFF";
-        btnMute.style.backgroundColor = musicEnabled
-          ? "rgba(76,175,80,0.3)"
-          : "rgba(244,67,54,0.3)";
-      }
     }
 
-    // BOTÃO DE PAUSA
     function setupPauseButton() {
-      if (!btnPause) {
-        console.warn("⚠️ Botão de pausa não encontrado!");
-        return;
-      }
-
+      if (!btnPause) return;
       btnPause.addEventListener("click", function () {
         isGamePaused = !isGamePaused;
-
         if (isGamePaused) {
-          // ✅ SALVA SE MÚSICA ESTAVA TOCANDO
           wasMusicPlayingBeforePause = !bgMusic.paused;
-
-          // Pausar jogo
           app.timeScale = 0;
           app.fire("game:pause");
           btnPause.innerHTML = "Retomar";
-          btnPause.style.backgroundColor = "rgba(255,184,77,0.3)";
-
-          if (pauseOverlay) {
-            pauseOverlay.style.display = "flex";
-          }
-
-          // Pausar música
+          if (pauseOverlay) pauseOverlay.style.display = "flex";
           stopMusic();
-
-          console.log(
-            "⏸️ Jogo pausado - música estava tocando:",
-            wasMusicPlayingBeforePause
-          );
         } else {
-          // Retomar jogo
           app.timeScale = 1;
           app.fire("game:resume");
           btnPause.innerHTML = "Pausar";
-          btnPause.style.backgroundColor = "rgba(0,0,0,0.7)";
-
-          if (pauseOverlay) {
-            pauseOverlay.style.display = "none";
-          }
-
-          // ✅ RETOMA MÚSICA SE ESTAVA TOCANDO ANTES DA PAUSA
-          if (wasMusicPlayingBeforePause && musicEnabled) {
-            console.log("▶️ Retomando música...");
-            playMusic();
-          }
-
-          console.log("▶️ Jogo retomado");
+          if (pauseOverlay) pauseOverlay.style.display = "none";
+          if (wasMusicPlayingBeforePause && musicEnabled) playMusic();
         }
       });
-
-      console.log("✅ Botão Pausar conectado");
     }
 
-    // Controle de pausa por tecla ESC
     function setupKeyboardPause() {
       document.addEventListener("keydown", function (e) {
         if (e.key === "Escape" || e.key === "Esc" || e.keyCode === 27) {
@@ -142,85 +70,45 @@
       });
     }
 
-    // Configura botão de música
-    if (btnMute) {
-      updateMusicButton();
-      btnMute.addEventListener("click", toggleMusic);
-      console.log("✅ Botão de música conectado");
-    }
-
+    if (btnMute) btnMute.addEventListener("click", toggleMusic);
     setupPauseButton();
     setupKeyboardPause();
 
-    // PAUSA O JOGO IMEDIATAMENTE no início
     app.timeScale = 0;
-    console.log("⏸️ Jogo pausado inicialmente (timeScale:", app.timeScale, ")");
+    if (menu) menu.style.display = "flex";
+    if (pauseOverlay) pauseOverlay.style.display = "none";
 
-    if (menu) {
-      menu.style.display = "flex";
-      console.log("📋 Menu HTML ativado");
-    }
-
-    if (pauseOverlay) {
-      pauseOverlay.style.display = "none";
-    }
-
-    // Botão INICIAR
     if (btnStart) {
       btnStart.addEventListener("click", function () {
-        console.log("▶️ Iniciar jogo clicado");
         if (menu) menu.style.display = "none";
         app.timeScale = 1;
         app.fire("game:resume");
-
-        if (btnPause) {
-          btnPause.style.display = "block";
-        }
-
-        if (pauseOverlay) {
-          pauseOverlay.style.display = "none";
-        }
-
-        // ✅ INICIA MÚSICA E MARCA COMO TOCANDO
+        if (btnPause) btnPause.style.display = "block";
+        if (pauseOverlay) pauseOverlay.style.display = "none";
         playMusic();
         wasMusicPlayingBeforePause = true;
-
-        console.log("▶️ Jogo iniciado (timeScale:", app.timeScale, ")");
       });
-      console.log("✅ Botão Iniciar conectado");
-    } else {
-      console.error("❌ btnStart não encontrado!");
     }
 
-    // Botão SAIR
     if (btnQuit) {
       btnQuit.addEventListener("click", function () {
-        console.log("🚪 Sair clicado");
         stopMusic();
-
         if (app.timeScale === 0) {
           window.close();
           history.back();
           return;
         }
-
         if (menu) {
           menu.style.display = "flex";
           app.timeScale = 0;
           app.fire("game:pause");
-
-          if (btnPause) {
-            btnPause.style.display = "none";
-          }
+          if (btnPause) btnPause.style.display = "none";
         }
       });
     }
 
-    if (btnPause) {
-      btnPause.style.display = "none";
-    }
+    if (btnPause) btnPause.style.display = "none";
 
-    // Salva referência global
     window.GAME_AUDIO = {
       music: bgMusic,
       isPlaying: function () {
@@ -245,8 +133,6 @@
         if (btnPause) btnPause.click();
       },
     };
-
-    console.log("✅ MenuController configurado completamente!");
   }
 
   function loadGameScripts(callback) {
@@ -261,21 +147,16 @@
       "scripts/uiManager.js",
     ];
     var loaded = 0;
-
     function checkComplete() {
       loaded++;
-      if (loaded === scripts.length) {
-        console.log("✅ All scripts loaded");
-        callback();
-      }
+      if (loaded === scripts.length) callback();
     }
-
     scripts.forEach(function (src) {
       var script = document.createElement("script");
       script.src = src + "?v=" + Date.now();
       script.onload = checkComplete;
       script.onerror = function () {
-        console.error("❌ Failed to load:", src);
+        console.error("Failed to load:", src);
         checkComplete();
       };
       document.head.appendChild(script);
@@ -287,8 +168,8 @@
     mat.diffuseMap = tex;
     mat.emissive = new pc.Color(1, 1, 1);
     mat.emissiveMap = tex;
-    mat.opacityMap = tex; // ✅ Usa canal alpha da textura
-    mat.blendType = pc.BLEND_PREMULTIPLIED; // ✅ Transparência correta
+    mat.opacityMap = tex;
+    mat.blendType = pc.BLEND_PREMULTIPLIED;
     mat.useLighting = false;
     mat.cull = pc.CULLFACE_NONE;
     mat.update();
@@ -296,8 +177,6 @@
   }
 
   function main() {
-    console.log("🎮 Starting game with layer system...");
-
     var canvas = document.getElementById("application-canvas");
     var app = new pc.Application(canvas, {
       mouse: new pc.Mouse(canvas),
@@ -314,21 +193,14 @@
 
     loadGameScripts(function () {
       if (typeof loadGameAssets === "function") {
-        console.log("📦 Loading game assets...");
         loadGameAssets(app).then(function () {
-          console.log("✅ Assets loaded, building scene...");
           buildScene(app);
-
           setTimeout(function () {
             setupMenuController(app);
           }, 100);
         });
       } else {
-        console.warn(
-          "⚠️ loadGameAssets not found, building scene without assets"
-        );
         buildScene(app);
-
         setTimeout(function () {
           setupMenuController(app);
         }, 100);
@@ -338,7 +210,6 @@
 
   function buildScene(app) {
     var LAYERS = window.setupLayers(app);
-    console.log("🎨 Layers configuradas:", LAYERS);
 
     var world = new pc.Entity("World");
     app.root.addChild(world);
@@ -352,7 +223,6 @@
     });
     app.root.addChild(ui);
 
-    // Camera
     var camera = new pc.Entity("Camera");
     camera.addComponent("camera", {
       clearColor: new pc.Color(0.1, 0.1, 0.1),
@@ -373,7 +243,6 @@
     camera.lookAt(0, 0, 0);
     app.root.addChild(camera);
 
-    // Light
     var light = new pc.Entity("Light");
     light.addComponent("light", {
       type: "directional",
@@ -383,7 +252,6 @@
     light.setLocalEulerAngles(45, 30, 0);
     app.root.addChild(light);
 
-    // UI Panels
     var menuPanel = new pc.Entity("MenuPanel");
     menuPanel.addComponent("element", {
       type: pc.ELEMENTTYPE_IMAGE,
@@ -414,7 +282,6 @@
     pausePanel.enabled = false;
     ui.addChild(pausePanel);
 
-    // HUD Info
     var enemyCountText = new pc.Entity("EnemyCountText");
     enemyCountText.addComponent("element", {
       type: pc.ELEMENTTYPE_TEXT,
@@ -461,24 +328,12 @@
     progressBar.enabled = false;
     hudPanel.addChild(progressBar);
 
-    // Texturas
     var heroTex = window.GAME_TEXTURES?.player || [];
     var enemyTex = window.GAME_TEXTURES?.enemy || [];
-    var visionTex = window.GAME_TEXTURES?.vision || [];
     var torchTex = window.GAME_TEXTURES?.torch || [];
     var altarTex = window.GAME_TEXTURES?.altar || [];
     var mapTex = window.GAME_TEXTURES?.world?.scenario;
 
-    console.log("🎨 Using textures:", {
-      hero: heroTex.length,
-      enemy: enemyTex.length,
-      vision: visionTex.length,
-      torch: torchTex.length,
-      altar: altarTex.length,
-      map: !!mapTex,
-    });
-
-    // BACKGROUND
     var background = new pc.Entity("Background");
     background.addComponent("render", {
       type: "box",
@@ -486,35 +341,27 @@
     });
     background.setLocalScale(24, 24, 0.1);
     background.setLocalPosition(0, 0, -1);
-    if (mapTex) {
+    if (mapTex)
       background.render.meshInstances[0].material = makeMaterial(mapTex);
-    }
     world.addChild(background);
 
-    // PLAYER
     var player = new pc.Entity("Player");
-    player.addComponent("render", {
-      type: "box",
-      layers: [LAYERS.PLAYER],
-    });
+    player.addComponent("render", { type: "box", layers: [LAYERS.PLAYER] });
     player.setLocalScale(1, 1, 0.1);
     player.setLocalPosition(0, -5, 0.02);
-    if (heroTex[0]) {
-      var matPlayer = makeMaterial(heroTex[0]);
-      player.render.meshInstances[0].material = matPlayer;
-    }
+    if (heroTex[0])
+      player.render.meshInstances[0].material = makeMaterial(heroTex[0]);
     player._heroTextures = heroTex;
-
     player.addComponent("script");
     player.script.create("playerController", {
       attributes: {
         boundsMin: new pc.Vec2(-11, -11),
         boundsMax: new pc.Vec2(11, 11),
+        startPosition: new pc.Vec3(0, -5, 0.02),
       },
     });
     world.addChild(player);
 
-    // TORCHES
     var torchPositions = [
       new pc.Vec3(-11, -11, 0.01),
       new pc.Vec3(-11, 11, 0.01),
@@ -523,10 +370,7 @@
     ];
     torchPositions.forEach(function (pos, index) {
       var torch = new pc.Entity("Torch" + index);
-      torch.addComponent("render", {
-        type: "box",
-        layers: [LAYERS.WORLD],
-      });
+      torch.addComponent("render", { type: "box", layers: [LAYERS.WORLD] });
       torch.setLocalScale(0.5, 0.5, 0.1);
       torch.setLocalPosition(pos.x, pos.y, pos.z);
       var mat = makeMaterial(torchTex[0] || null);
@@ -556,142 +400,79 @@
       world.addChild(torch);
     });
 
-    // ALTAR
     var altar = new pc.Entity("Altar");
-    altar.addComponent("render", {
-      type: "box",
-      layers: [LAYERS.WORLD],
-    });
+    altar.addComponent("render", { type: "box", layers: [LAYERS.WORLD] });
     altar.setLocalScale(2, 2, 0.1);
     altar.setLocalPosition(0, 0, 0.02);
-    if (altarTex[0]) {
+    if (altarTex[0])
       altar.render.meshInstances[0].material = makeMaterial(altarTex[0]);
-    }
     altar._altarTextures = altarTex;
     altar.addComponent("script");
     altar.script.create("altar");
     world.addChild(altar);
 
-    // ELEMENTOS DECORATIVOS
     var bancoTex = window.GAME_TEXTURES?.world?.banco;
-    var portalTex = window.GAME_TEXTURES?.world?.portal;
     var posteTex = window.GAME_TEXTURES?.world?.poste;
 
-    console.log("🎨 Decorative textures:", {
-      banco: !!bancoTex,
-      portal: !!portalTex,
-      poste: !!posteTex,
-    });
-
-    // 4 BANCOS (próximos às paredes) com colisão
     var bancoData = [
-      { pos: new pc.Vec3(-9, 9, 0.01), flipX: true }, // Canto superior esquerdo (INVERTIDO)
-      { pos: new pc.Vec3(9, 9, 0.01), flipX: false }, // Canto superior direito
-      { pos: new pc.Vec3(-9, -9, 0.01), flipX: true }, // Canto inferior esquerdo (INVERTIDO)
-      { pos: new pc.Vec3(9, -9, 0.01), flipX: false }, // Canto inferior direito
+      { pos: new pc.Vec3(-6, 7, 0.01), flipX: true },
+      { pos: new pc.Vec3(6, 7, 0.01), flipX: false },
+      { pos: new pc.Vec3(-6, -7, 0.01), flipX: true },
+      { pos: new pc.Vec3(6, -7, 0.01), flipX: false },
     ];
-
     bancoData.forEach(function (data, i) {
       var banco = new pc.Entity("Banco" + i);
-      banco.addComponent("render", {
-        type: "box",
-        layers: [LAYERS.OBJECTS],
-      });
-
-      // ✅ Tamanho aumentado
-      var scaleX = data.flipX ? -2.0 : 2.0; // Flipar se estiver à esquerda
+      banco.addComponent("render", { type: "box", layers: [LAYERS.OBJECTS] });
+      var scaleX = data.flipX ? -2.0 : 2.0;
       banco.setLocalScale(scaleX, 2.0, 0.1);
       banco.setLocalPosition(data.pos.x, data.pos.y, data.pos.z);
-
-      if (bancoTex) {
-        var mat = makeMaterial(bancoTex);
-        banco.render.meshInstances[0].material = mat;
-      } else {
+      if (bancoTex)
+        banco.render.meshInstances[0].material = makeMaterial(bancoTex);
+      else {
         var mat = new pc.StandardMaterial();
         mat.diffuse.set(0.4, 0.3, 0.2);
         mat.update();
         banco.render.meshInstances[0].material = mat;
       }
-
       world.addChild(banco);
     });
 
-    // PORTAL (parte superior, próximo ao spawn) com colisão
-    var portal = new pc.Entity("Portal");
-    portal.addComponent("render", {
-      type: "box",
-      layers: [LAYERS.OBJECTS],
-    });
-    portal.setLocalScale(3.5, 3.5, 0.1); // ✅ Aumentado
-    portal.setLocalPosition(0, 10, 0.01);
-
-    if (portalTex) {
-      var matPortal = makeMaterial(portalTex);
-      portal.render.meshInstances[0].material = matPortal;
-      console.log("✅ Portal texture loaded");
-    } else {
-      console.warn("⚠️ Portal texture not found!");
-      var matPortal = new pc.StandardMaterial();
-      matPortal.diffuse.set(0.5, 0.2, 0.8);
-      matPortal.emissive.set(0.5, 0.2, 0.8);
-      matPortal.emissiveIntensity = 0.5;
-      matPortal.update();
-      portal.render.meshInstances[0].material = matPortal;
-    }
-
-    world.addChild(portal);
-
-    // 2 POSTES (laterais, entre bancos) com colisão
     var postePositions = [
-      new pc.Vec3(-9, 0, 0.01), // Lado esquerdo
-      new pc.Vec3(9, 0, 0.01), // Lado direito
+      new pc.Vec3(-3, 10, 0.01),
+      new pc.Vec3(3, 10, 0.01),
+      new pc.Vec3(-9, 0, 0.01),
+      new pc.Vec3(9, 0, 0.01),
     ];
-
     postePositions.forEach(function (pos, i) {
       var poste = new pc.Entity("Poste" + i);
-      poste.addComponent("render", {
-        type: "box",
-        layers: [LAYERS.OBJECTS],
-      });
-      poste.setLocalScale(1.2, 2.2, 0.1); // ✅ Aumentado
+      poste.addComponent("render", { type: "box", layers: [LAYERS.OBJECTS] });
+      poste.setLocalScale(1.2, 2.2, 0.1);
       poste.setLocalPosition(pos.x, pos.y, pos.z);
-
-      if (posteTex) {
-        var mat = makeMaterial(posteTex);
-        poste.render.meshInstances[0].material = mat;
-      } else {
+      if (posteTex)
+        poste.render.meshInstances[0].material = makeMaterial(posteTex);
+      else {
         var mat = new pc.StandardMaterial();
         mat.diffuse.set(0.3, 0.3, 0.3);
         mat.update();
         poste.render.meshInstances[0].material = mat;
       }
-
       world.addChild(poste);
     });
 
-    console.log(
-      "✅ Elementos decorativos adicionados COM COLISÃO: 4 bancos, 1 portal, 2 postes"
-    );
-
-    // GAME MANAGER
     var gm = new pc.Entity("GameManager");
     gm.addComponent("script");
     gm.script.create("gameManager");
     world.addChild(gm);
 
-    // ENEMY PREFAB
     var enemyPrefab = new pc.Entity("EnemyPrefab");
     enemyPrefab.addComponent("render", {
       type: "box",
       layers: [LAYERS.ENEMIES],
     });
     enemyPrefab.setLocalScale(0.9, 0.9, 0.1);
-    if (enemyTex[0]) {
-      var matEnemy = makeMaterial(enemyTex[0]);
-      enemyPrefab.render.meshInstances[0].material = matEnemy;
-    }
+    if (enemyTex[0])
+      enemyPrefab.render.meshInstances[0].material = makeMaterial(enemyTex[0]);
     enemyPrefab._enemyTextures = enemyTex;
-
     enemyPrefab.addComponent("script");
     enemyPrefab.script.create("enemyAI");
     enemyPrefab.enabled = false;
@@ -699,12 +480,10 @@
 
     window.GAME_LAYERS = LAYERS;
 
-    // Spawn Points
     var spawnPointTop = new pc.Entity("SpawnPointTop");
     spawnPointTop.setLocalPosition(0, 11, 0);
     world.addChild(spawnPointTop);
 
-    // UI Manager
     var uiMgr = new pc.Entity("UiManager");
     uiMgr.addComponent("script");
     uiMgr.script.create("uiManager", {
@@ -719,7 +498,6 @@
     });
     ui.addChild(uiMgr);
 
-    // Connect scripts
     gm.script.gameManager.player = player;
     gm.script.gameManager.altar = altar;
     gm.script.gameManager.uiManager = uiMgr;
@@ -728,13 +506,9 @@
 
     menuPanel.enabled = false;
     hudPanel.enabled = false;
-
-    console.log("✅ Scene built successfully!");
   }
 
-  if (document.readyState === "loading") {
+  if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", main);
-  } else {
-    main();
-  }
+  else main();
 })();

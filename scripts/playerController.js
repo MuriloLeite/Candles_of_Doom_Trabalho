@@ -1,6 +1,3 @@
-// playerController.js - COM COLISÃO NOS OBJETOS
-// Movimento pelas setas, sprites por direção, hitbox AABB e INTERAÇÃO COM TOCHAS
-
 var PlayerController = pc.createScript("playerController");
 
 PlayerController.attributes.add("speed", {
@@ -27,6 +24,11 @@ PlayerController.attributes.add("interactionRadius", {
   type: "number",
   default: 1.5,
   title: "Interaction Radius (tochas)",
+});
+PlayerController.attributes.add("startPosition", {
+  type: "vec3",
+  default: [0, -5, 0.02],
+  title: "Start Position",
 });
 
 PlayerController.prototype.initialize = function () {
@@ -56,7 +58,22 @@ PlayerController.prototype.initialize = function () {
   this._nearbyTorch = null;
   this._interactingTorch = null;
 
-  console.log("🦸 PlayerController inicializado com colisão");
+  this._startPosition = this.startPosition.clone();
+
+  this.app.on("player:reset", this.resetToStart, this);
+};
+
+PlayerController.prototype.onDestroy = function () {
+  this.app.off("player:reset", this.resetToStart, this);
+};
+
+PlayerController.prototype.resetToStart = function () {
+  this.entity.setPosition(this._startPosition.clone());
+  this._dir.set(0, 0);
+  this._lastDir.set(0, -1);
+  this.isInteractHeld = false;
+  this._nearbyTorch = null;
+  this._interactingTorch = null;
 };
 
 PlayerController.prototype.update = function (dt) {
@@ -70,7 +87,6 @@ PlayerController.prototype.update = function (dt) {
 PlayerController.prototype._readInput = function () {
   var x = 0,
     y = 0;
-
   if (
     this.app.keyboard.isPressed(pc.KEY_LEFT) ||
     this.app.keyboard.isPressed(pc.KEY_A)
@@ -103,107 +119,74 @@ PlayerController.prototype._readInput = function () {
   this.isInteractHeld = this.app.keyboard.isPressed(pc.KEY_E);
 };
 
-// ✅ MOVIMENTO COM VERIFICAÇÃO DE COLISÃO
 PlayerController.prototype._move = function (dt) {
   if (this._dir.lengthSq() === 0) return;
-
   var dx = this._dir.x * this.speed * dt;
   var dy = this._dir.y * this.speed * dt;
-
   var currentPos = this.entity.getLocalPosition();
   var newX = currentPos.x + dx;
   var newY = currentPos.y + dy;
-
-  // Tenta mover para nova posição
   if (!this._collidesWithObjects(newX, newY)) {
     this.entity.setLocalPosition(newX, newY, currentPos.z);
   } else {
-    // Tenta mover só em X
     if (!this._collidesWithObjects(newX, currentPos.y)) {
       this.entity.setLocalPosition(newX, currentPos.y, currentPos.z);
-    }
-    // Tenta mover só em Y
-    else if (!this._collidesWithObjects(currentPos.x, newY)) {
+    } else if (!this._collidesWithObjects(currentPos.x, newY)) {
       this.entity.setLocalPosition(currentPos.x, newY, currentPos.z);
     }
-    // Se ambos falharem, não move
   }
 };
 
-// ✅ VERIFICA COLISÃO COM TODOS OS OBJETOS
 PlayerController.prototype._collidesWithObjects = function (x, y) {
-  // Colisão com tochas
   if (this._collidesWithTorches(x, y)) return true;
-
-  // Colisão com objetos decorativos (bancos, postes, portal)
   if (this._collidesWithDecorations(x, y)) return true;
-
   return false;
 };
 
-// Colisão com tochas (já existia)
 PlayerController.prototype._collidesWithTorches = function (x, y) {
   var torches = this.app.root.findByTag("torch");
   var playerRadius = 0.5;
   var torchRadius = 0.25;
   var minDist = playerRadius + torchRadius;
-
   for (var i = 0; i < torches.length; i++) {
     var torchPos = torches[i].getPosition();
     var dx = x - torchPos.x;
     var dy = y - torchPos.y;
     var dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < minDist) {
-      return true;
-    }
+    if (dist < minDist) return true;
   }
   return false;
 };
 
-// ✅ NOVA: Colisão com objetos decorativos
 PlayerController.prototype._collidesWithDecorations = function (x, y) {
   var playerHalfW = this._hitW / 2;
   var playerHalfH = this._hitH / 2;
-
   var playerBox = {
     minX: x - playerHalfW,
     maxX: x + playerHalfW,
     minY: y - playerHalfH,
     maxY: y + playerHalfH,
   };
-
-  // Busca todos os objetos decorativos
   var objects = [];
-
-  // Bancos
   for (var i = 0; i < 4; i++) {
     var banco = this.app.root.findByName("Banco" + i);
     if (banco) objects.push({ entity: banco, halfW: 1.0, halfH: 1.0 });
   }
-
-  // Postes
   for (var j = 0; j < 2; j++) {
     var poste = this.app.root.findByName("Poste" + j);
     if (poste) objects.push({ entity: poste, halfW: 0.6, halfH: 1.1 });
   }
-
-  // Portal
   var portal = this.app.root.findByName("Portal");
   if (portal) objects.push({ entity: portal, halfW: 1.75, halfH: 1.75 });
-
-  // Verifica colisão AABB com cada objeto
   for (var k = 0; k < objects.length; k++) {
     var obj = objects[k];
     var pos = obj.entity.getPosition();
-
     var objBox = {
       minX: pos.x - obj.halfW,
       maxX: pos.x + obj.halfW,
       minY: pos.y - obj.halfH,
       maxY: pos.y + obj.halfH,
     };
-
-    // Teste AABB
     if (
       !(
         playerBox.maxX < objBox.minX ||
@@ -211,11 +194,9 @@ PlayerController.prototype._collidesWithDecorations = function (x, y) {
         playerBox.maxY < objBox.minY ||
         playerBox.minY > objBox.maxY
       )
-    ) {
-      return true; // Colidiu
-    }
+    )
+      return true;
   }
-
   return false;
 };
 
@@ -231,14 +212,12 @@ PlayerController.prototype._checkTorchInteraction = function () {
   var torches = this.app.root.findByTag("torch");
   var closestTorch = null;
   var closestDist = Infinity;
-
   for (var i = 0; i < torches.length; i++) {
     var torch = torches[i];
     var torchPos = torch.getPosition();
     var dx = playerPos.x - torchPos.x;
     var dy = playerPos.y - torchPos.y;
     var dist = Math.sqrt(dx * dx + dy * dy);
-
     if (dist <= this.interactionRadius && dist < closestDist) {
       closestDist = dist;
       closestTorch = torch;
@@ -247,18 +226,15 @@ PlayerController.prototype._checkTorchInteraction = function () {
 
   if (closestTorch && !this.isInteractHeld) {
     var torchScript = closestTorch.script && closestTorch.script.torch;
-    if (torchScript && !torchScript.isLit()) {
+    if (torchScript && !torchScript.isLit())
       this.app.fire("ui:hint", "Pressione E para acender a tocha");
-    }
   }
 
   if (this._nearbyTorch !== closestTorch) {
     if (this._nearbyTorch) {
       var oldScript =
         this._nearbyTorch.script && this._nearbyTorch.script.torch;
-      if (oldScript) {
-        oldScript.cancelIgnite(this.entity);
-      }
+      if (oldScript) oldScript.cancelIgnite(this.entity);
     }
     this._nearbyTorch = closestTorch;
   }
@@ -268,7 +244,6 @@ PlayerController.prototype._checkTorchInteraction = function () {
       this._nearbyTorch.script && this._nearbyTorch.script.torch;
     if (torchScript && !torchScript.isLit()) {
       if (this._interactingTorch !== this._nearbyTorch) {
-        console.log("Player começou a segurar E na tocha");
         torchScript.beginIgnite(this.entity);
         this._interactingTorch = this._nearbyTorch;
       }
@@ -277,16 +252,10 @@ PlayerController.prototype._checkTorchInteraction = function () {
     if (this._interactingTorch) {
       var script =
         this._interactingTorch.script && this._interactingTorch.script.torch;
-      if (script) {
-        console.log("Player soltou E ou saiu do alcance");
-        script.cancelIgnite(this.entity);
-      }
+      if (script) script.cancelIgnite(this.entity);
       this._interactingTorch = null;
     }
-
-    if (!closestTorch) {
-      this.app.fire("ui:hint", "");
-    }
+    if (!closestTorch) this.app.fire("ui:hint", "");
   }
 };
 
@@ -305,24 +274,16 @@ PlayerController.prototype.getHitboxAabb = function () {
 PlayerController.prototype._updateSprite = function () {
   if (!this.frameTextures || this.frameTextures.length < 3) return;
   if (!this._material) return;
-
   var absX = Math.abs(this._lastDir.x);
   var absY = Math.abs(this._lastDir.y);
-
   var texIdx = 1;
   var flip = false;
-
   if (absX > absY) {
     texIdx = 2;
     flip = this._lastDir.x < 0;
   } else {
-    if (this._lastDir.y > 0) {
-      texIdx = 1;
-    } else {
-      texIdx = 0;
-    }
+    texIdx = this._lastDir.y > 0 ? 1 : 0;
   }
-
   var asset = this.frameTextures[texIdx];
   var tex =
     asset && asset.resource
@@ -337,7 +298,6 @@ PlayerController.prototype._updateSprite = function () {
       this._material.update();
     }
   }
-
   var s = this.entity.getLocalScale();
   this.entity.setLocalScale(flip ? -Math.abs(s.x) : Math.abs(s.x), s.y, s.z);
 };

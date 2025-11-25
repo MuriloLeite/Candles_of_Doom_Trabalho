@@ -1,4 +1,3 @@
-// Asset Loader - Manages loading and caching of game assets
 window.GAME_TEXTURES = {
   player: [],
   enemy: [],
@@ -10,39 +9,32 @@ window.GAME_TEXTURES = {
 
 function loadGameAssets(app) {
   return new Promise((resolve) => {
-    // Define asset lists by category
     const playerAssets = [
       "./game_assets/player/player_front.png",
       "./game_assets/player/player_back.png",
       "./game_assets/player/player_side.png",
     ];
-
     const enemyAssets = [
       "./game_assets/enemy/enemy_front.png",
       "./game_assets/enemy/enemy_back.png",
       "./game_assets/enemy/enemy_side.png",
     ];
-
-    // NOVO: Assets de visão do inimigo (cone amarelo)
     const visionAssets = [
       "./game_assets/enemy/enemy_vision_back.png",
       "./game_assets/enemy/enemy_vision_front.png",
       "./game_assets/enemy/enemy_vision_side.png",
     ];
-
     const torchAssets = [
-      "./game_assets/world/tocha-frente.png", // unlit
-      "./game_assets/world/tocha-lateral.png", // lit
+      "./game_assets/world/tocha-frente.png",
+      "./game_assets/world/tocha-lateral.png",
     ];
-
     const altarAssets = [
-      "./game_assets/magic/altar_0.png", // frame 0
-      "./game_assets/magic/altar_1.png", // frame 1
-      "./game_assets/magic/altar_2.png", // frame 2
-      "./game_assets/magic/altar_3.png", // frame 3
-      "./game_assets/magic/altar_4.png", // frame 4
+      "./game_assets/magic/altar_0.png",
+      "./game_assets/magic/altar_1.png",
+      "./game_assets/magic/altar_2.png",
+      "./game_assets/magic/altar_3.png",
+      "./game_assets/magic/altar_4.png",
     ];
-
     const worldAssets = [
       "./game_assets/world/scenario.png",
       "./game_assets/world/banco.png",
@@ -62,28 +54,22 @@ function loadGameAssets(app) {
     let loaded = 0;
 
     function onAssetLoaded(asset, category, index) {
-      if (category === "player") {
+      if (category === "player")
         window.GAME_TEXTURES.player[index] = asset.resource;
-      } else if (category === "enemy") {
+      else if (category === "enemy")
         window.GAME_TEXTURES.enemy[index] = asset.resource;
-      } else if (category === "torch") {
+      else if (category === "torch")
         window.GAME_TEXTURES.torch[index] = asset.resource;
-      } else if (category === "altar") {
+      else if (category === "altar")
         window.GAME_TEXTURES.altar[index] = asset.resource;
-      } else if (category === "world") {
+      else if (category === "world") {
         const name = asset.name.toLowerCase();
         window.GAME_TEXTURES.world[name] = asset.resource;
       }
-
       loaded++;
-      if (loaded === toLoad) {
-        console.log("All assets loaded successfully!");
-        console.log("Vision textures:", window.GAME_TEXTURES.vision);
-        resolve(window.GAME_TEXTURES);
-      }
+      if (loaded === toLoad) resolve(window.GAME_TEXTURES);
     }
 
-    // Load player assets
     playerAssets.forEach((url, index) => {
       const asset = new pc.Asset(`player_${index}`, "texture", { url: url });
       app.assets.add(asset);
@@ -96,7 +82,6 @@ function loadGameAssets(app) {
       app.assets.load(asset);
     });
 
-    // Load enemy assets
     enemyAssets.forEach((url, index) => {
       const asset = new pc.Asset(`enemy_${index}`, "texture", { url: url });
       app.assets.add(asset);
@@ -109,21 +94,18 @@ function loadGameAssets(app) {
       app.assets.load(asset);
     });
 
-    // NOVO: Load vision assets
     visionAssets.forEach((url, index) => {
       const asset = new pc.Asset(`vision_${index}`, "texture", { url: url });
       app.assets.add(asset);
       asset.once("load", () => onAssetLoaded(asset, "vision", index));
       asset.once("error", (err) => {
         console.warn(`Failed to load vision asset ${index}:`, err);
-        console.log("Will use solid color cone instead");
         loaded++;
         if (loaded === toLoad) resolve(window.GAME_TEXTURES);
       });
       app.assets.load(asset);
     });
 
-    // Load torch assets
     torchAssets.forEach((url, index) => {
       const asset = new pc.Asset(`torch_${index}`, "texture", { url: url });
       app.assets.add(asset);
@@ -136,7 +118,6 @@ function loadGameAssets(app) {
       app.assets.load(asset);
     });
 
-    // Load altar assets
     altarAssets.forEach((url, index) => {
       const asset = new pc.Asset(`altar_${index}`, "texture", { url: url });
       app.assets.add(asset);
@@ -149,7 +130,6 @@ function loadGameAssets(app) {
       app.assets.load(asset);
     });
 
-    // Load world assets
     worldAssets.forEach((url) => {
       const name = url.split("/").pop().split(".")[0];
       const asset = new pc.Asset(name, "texture", { url: url });
