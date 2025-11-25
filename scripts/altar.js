@@ -333,18 +333,7 @@ Altar.prototype._applyFrameTexture = function (frameIndex) {
     Math.min(frameIndex | 0, this.frameTextures.length - 1)
   );
 
-  // ✅ DEBUG
-  console.log("🔍 DEBUG _applyFrameTexture:");
-  console.log("  - frameIndex:", frameIndex);
-  console.log("  - this.frameTextures:", this.frameTextures);
-  console.log(
-    "  - this.frameTextures.length:",
-    this.frameTextures ? this.frameTextures.length : "NULL"
-  );
-
   var asset = this.frameTextures && this.frameTextures[frameIndex];
-
-  console.log("  - asset:", asset);
 
   if (!asset) {
     console.warn("⚠ Frame", frameIndex, "não tem textura");
@@ -352,9 +341,6 @@ Altar.prototype._applyFrameTexture = function (frameIndex) {
   }
 
   var tex = asset.resource || asset;
-
-  console.log("  - tex:", tex);
-  console.log("  - tex instanceof pc.Texture:", tex instanceof pc.Texture);
 
   var mat = this.entity.render.meshInstances[0].material;
   if (!mat) {
@@ -379,7 +365,6 @@ Altar.prototype._applyFrameTexture = function (frameIndex) {
       mat.emissiveIntensity
     );
   } else {
-    console.warn("⚠ Textura não é válida, usando cor");
     var colors = [
       new pc.Color(0.2, 0.2, 0.2),
       new pc.Color(0.4, 0.2, 0.2),
@@ -400,11 +385,15 @@ Altar.prototype._applyFrameTexture = function (frameIndex) {
   mat.update();
 };
 
+// No script que controla a vitória (ex: collectible.js ou goal.js)
 function triggerVictory() {
+  // 🔥 MARCAR QUE JOGADOR GANHOU - ISSO IMPEDE GAME OVER
   window.GAME_WON = true;
 
+  // Parar o jogo
   this.app.timeScale = 0;
 
+  // Remover qualquer tela de Game Over que possa estar ativa
   const gameOverScreen = document.getElementById("gameOverScreen");
   if (gameOverScreen) {
     gameOverScreen.remove();

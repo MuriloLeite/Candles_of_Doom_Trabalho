@@ -1,6 +1,10 @@
+// Bootstrap v7 — Music, layers and menu controller
 (function () {
   "use strict";
 
+  console.log("Bootstrap v7 - Música e cone de visão corrigidos");
+
+  // Menu and audio/pause controller
   function setupMenuController(app) {
     var btnStart = document.getElementById("btnStart");
     var btnQuit = document.getElementById("btnQuit");
@@ -74,6 +78,7 @@
     setupPauseButton();
     setupKeyboardPause();
 
+    // Start paused, show HTML menu
     app.timeScale = 0;
     if (menu) menu.style.display = "flex";
     if (pauseOverlay) pauseOverlay.style.display = "none";
@@ -109,6 +114,7 @@
 
     if (btnPause) btnPause.style.display = "none";
 
+    // Expose helpers
     window.GAME_AUDIO = {
       music: bgMusic,
       isPlaying: function () {
@@ -135,6 +141,7 @@
     };
   }
 
+  // Load game scripts into the page
   function loadGameScripts(callback) {
     var scripts = [
       "scripts/layerManager.js",
@@ -163,6 +170,7 @@
     });
   }
 
+  // Create a material with alpha support
   function makeMaterial(tex) {
     var mat = new pc.StandardMaterial();
     mat.diffuseMap = tex;
@@ -176,7 +184,9 @@
     return mat;
   }
 
+  // Main initializer
   function main() {
+    console.log("🎮 Starting game with layer system...");
     var canvas = document.getElementById("application-canvas");
     var app = new pc.Application(canvas, {
       mouse: new pc.Mouse(canvas),
@@ -208,8 +218,10 @@
     });
   }
 
+  // Build the scene: layers, world, UI, player, torches, decorations and game manager
   function buildScene(app) {
     var LAYERS = window.setupLayers(app);
+    console.log("🎨 Layers configuradas:", LAYERS);
 
     var world = new pc.Entity("World");
     app.root.addChild(world);
@@ -357,7 +369,6 @@
       attributes: {
         boundsMin: new pc.Vec2(-11, -11),
         boundsMax: new pc.Vec2(11, 11),
-        startPosition: new pc.Vec3(0, -5, 0.02),
       },
     });
     world.addChild(player);
@@ -401,24 +412,68 @@
     });
 
     var altar = new pc.Entity("Altar");
-    altar.addComponent("render", { type: "box", layers: [LAYERS.WORLD] });
+    altar.addComponent("render", {
+      type: "box",
+      layers: [LAYERS.WORLD],
+    });
+
+    // Tamanho do altar
     altar.setLocalScale(2, 2, 0.1);
     altar.setLocalPosition(0, 0, 0.02);
-    if (altarTex[0])
-      altar.render.meshInstances[0].material = makeMaterial(altarTex[0]);
+
+    // ✅ APLICAR TEXTURA CORRETAMENTE
+    if (altarTex && altarTex.length > 0 && altarTex[0]) {
+      console.log("✅ Aplicando textura do altar_0");
+
+      // Extrai a textura do asset
+      var tex = altarTex[0].resource || altarTex[0];
+
+      // Cria material com a textura
+      var matAltar = new pc.StandardMaterial();
+      matAltar.diffuseMap = tex;
+      matAltar.emissive = new pc.Color(1, 1, 1);
+      matAltar.emissiveMap = tex;
+      matAltar.emissiveIntensity = 0.8;
+      matAltar.opacityMap = tex;
+      matAltar.blendType = pc.BLEND_PREMULTIPLIED;
+      matAltar.useLighting = false;
+      matAltar.cull = pc.CULLFACE_NONE;
+      matAltar.depthWrite = true;
+      matAltar.update();
+
+      // Aplica ao mesh
+      altar.render.meshInstances[0].material = matAltar;
+
+      console.log("✅ Material do altar aplicado");
+    } else {
+      console.warn("⚠ Textura do altar não encontrada");
+      // Usa makeMaterial como fallback
+      if (altarTex[0]) {
+        altar.render.meshInstances[0].material = makeMaterial(altarTex[0]);
+      }
+    }
+
+    // Passa as texturas para o script poder trocar depois
     altar._altarTextures = altarTex;
+
+    // Adiciona script
     altar.addComponent("script");
     altar.script.create("altar");
+
+    // Adiciona ao mundo
     world.addChild(altar);
 
+    console.log("✅ Altar criado na posição:", altar.getPosition());
+
     var bancoTex = window.GAME_TEXTURES?.world?.banco;
+    var portalTex = window.GAME_TEXTURES?.world?.portal;
     var posteTex = window.GAME_TEXTURES?.world?.poste;
 
     var bancoData = [
-      { pos: new pc.Vec3(-6, 7, 0.01), flipX: true },
-      { pos: new pc.Vec3(6, 7, 0.01), flipX: false },
-      { pos: new pc.Vec3(-6, -7, 0.01), flipX: true },
-      { pos: new pc.Vec3(6, -7, 0.01), flipX: false },
+      { pos: new pc.Vec3(-9, 9, 0.01), flipX: true },
+      { pos: new pc.Vec3(9, 9, 0.01), flipX: false },
+      { pos: new pc.Vec3(-9, -9, 0.01), flipX: true },
+      { pos: new pc.Vec3(9, -9, 0.01), flipX: false },
     ];
     bancoData.forEach(function (data, i) {
       var banco = new pc.Entity("Banco" + i);
@@ -437,12 +492,23 @@
       world.addChild(banco);
     });
 
-    var postePositions = [
-      new pc.Vec3(-3, 10, 0.01),
-      new pc.Vec3(3, 10, 0.01),
-      new pc.Vec3(-9, 0, 0.01),
-      new pc.Vec3(9, 0, 0.01),
-    ];
+    var portal = new pc.Entity("Portal");
+    portal.addComponent("render", { type: "box", layers: [LAYERS.OBJECTS] });
+    portal.setLocalScale(3.5, 3.5, 0.1);
+    portal.setLocalPosition(0, 100, 0.01);
+    if (portalTex)
+      portal.render.meshInstances[0].material = makeMaterial(portalTex);
+    else {
+      var matPortal = new pc.StandardMaterial();
+      matPortal.diffuse.set(0.5, 0.2, 0.8);
+      matPortal.emissive.set(0.5, 0.2, 0.8);
+      matPortal.emissiveIntensity = 0.5;
+      matPortal.update();
+      portal.render.meshInstances[0].material = matPortal;
+    }
+    world.addChild(portal);
+
+    var postePositions = [new pc.Vec3(-9, 0, 0.01), new pc.Vec3(9, 0, 0.01)];
     postePositions.forEach(function (pos, i) {
       var poste = new pc.Entity("Poste" + i);
       poste.addComponent("render", { type: "box", layers: [LAYERS.OBJECTS] });
@@ -506,6 +572,7 @@
 
     menuPanel.enabled = false;
     hudPanel.enabled = false;
+    console.log("✅ Scene built successfully!");
   }
 
   if (document.readyState === "loading")
